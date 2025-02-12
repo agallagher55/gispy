@@ -1,0 +1,34 @@
+1)	Create a new file geodatabase, adding a copy of TRN_street and the HPMA Extract.
+    a)	Note: the extract from Scott may require a reprojection, as I believe the HPMA system is referencing the ATS77 projection.
+    b)	Data objects in SDE have a projection of NAD_1983_CSRS_2010_MTM_5_Nova_Scotia.
+
+2)	Create a new ArcMap document and add the inputs to the document.
+
+3)	Create a new feature class that is a subset of TRN_street that contains only HRM owned roads and Non-Accepted Streets,
+        and where all Turning Lane segments are excluded from future analysis.
+        (HPMA does not rate roads that are not maintained by HRM or turning lanes.
+
+        a)	Create a selection set of TRN_street where OWN = ‘HRM’ OR OWN = ‘NA’.
+        b)	Next, remove from the current selection set where
+            FLAGS IN ( 'TL' , 'TL ZAG' , 'TL UIMSR' , 'RNV TL', 'NRR TL', 'NAR TL ZAG', 'GSA NRR TL', 'GNP TL', 'DSN TL')
+        c)	Save the selection as a new feature class called TRN_street_HRMandNA_noTLflag
+
+4)	Use the Generate Points Along Lines Tool to create new point feature classes that contain the midpoint of the HPMA
+    extract lines and the subset of TRN_street created in Step 3.
+
+5)	Run a Spatial Join with the new point feature classes created in Step 4. Use a buffer distance of 10m.
+
+The output of this Spatial Join will be all the subset of street segments from TRN_street and
+    if there is a HPMA centre point within 10m of a Street centre point that information will be included.
+
+A new table could be created from the output of the spatial join that could consist of the FDMID and
+    whichever attributes from HPMA that are of interest. That table could then be joined to TRN_street for future analysis.
+
+
+
+
+
+
+
+
+

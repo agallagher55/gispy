@@ -1,0 +1,9 @@
+- Update TRN_street_cut_vw
+	- view derived from trn_street, trn_street_hpma_ratings (PCI_MRM), trn_street_cut_fee 
+	trn_street_hpma_ratings table.
+
+	From Ken:
+		Used in the street segment reference data, the PCI value is used to determine the fee for when someone need to cut into the road.
+		That table would be generated from the AST_hpma_rd_condit feature class I believe.
+	
+- Source data references miles, but they've already been converted to kms.
