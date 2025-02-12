@@ -1,0 +1,14 @@
+SQL Directory: T:\work\giss\tools\Parcel Load\Parcel Load sqls
+
+sqlplus
+Username: sdeadm@'msgisorap201:1504/GISRWP01’
+
+@create_newpid_report.sql
+@update_parcel_line_fcode.sql
+@update_parcel_poly_fcode.sql
+
+Rebuild PID_Locator_NAD83 - DC1-GIS-APP-P22 
+
+@update_linnstemp_batch.sql
+
+Truncate and Append LINNS_ALL in RW database

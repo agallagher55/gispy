@@ -1,0 +1,6 @@
+TRUNCATE TABLE PID_DIST;
+INSERT INTO PID_DIST(pid, dist_id)
+SELECT pid, dist_id
+FROM PID_DIST@FROM_ROSDE;
+commit;
+exit;
