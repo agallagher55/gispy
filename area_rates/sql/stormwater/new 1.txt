@@ -1,0 +1,24 @@
+AAN points outside of Area Rate
+
+Need to know if there is a PID inside (or intersecting) the Area Rate with the same AAN.
+
+1. Intersecting PIDs
+2. Join outside AANs to intersecting PIDs
+	-- If no join, AAN doesn't have a PID inside the area rate
+
+------------------------------------------------------------------
+1. Get points that fall outside area rate
+2. Get parcels that intersect area rate 
+3. Get LND_finance_hansen_points that intersect area rate parcels
+
+Notes:
+- LND_finance_hansen_points are multi-point features, so one point can be inside
+	the area rate and one point can be outside.
+	
+
+Find related PIDs that have AANs that intersect area rate parcels
+- Join LND_finance_hansen_point to outside area rate points, only keep matches, intersect area rate parcels
+
+QC
+- Check if point intersects parcel that intersects area rate
+- check if point has an AAN that matches an AAN of a point that intersects a parcel that intersects the area rate.

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Area Rates</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <script src="index.js"></script>
+
+
+    <h1>GIS Area Rates</h1>
+    <h2>GIS Integration with TRM</h2>
+    <h3>1. GIS Interface</h3>
+    <h4>1.1 Summary</h4>
+    <p>
+        Some property tax rates are geographic in nature, with the applicability or rate dependent on the location of
+        the
+        property.
+        Halifax’s GIS system is the system of record for the boundaries where these location-based rates apply.
+        This development will allow TRM to query GIS via a REST api.
+        For a given AAN or PID, GIS will return a list of all applicable location dependent rates.
+        The query can be called in bulk, or for a single AAN.
+    </p>
+
+    <h4>1.2 Technical Details</h4>
+    <p>
+        Twice a year, after area rates have been updated in GIS, bulk update Rate applicability in TRM:
+    <ol>
+        <li>Maintain table ZDC_TRM_PTGIS to set the tax year to be updated.</li>
+        <li>Execute Z_TRM_PARCEL_GIS_AREA_RATES in background</li>
+        <li>Review GIS updates in the fiori apps GIS update monitor or GIS update report, to observe which AANs have not
+            been updated (via the GIS update date).</li>
+        <li>Execute Z_TRM_PARCEL_GIS_AREA_RATES in background for those AAN, this time by PID.</li>
+        <li>If any AANs are still not updated, review these with the GIS team.</li>
+        <li>For Mobile Home, ensure that each mobile home is assigned to a parcel update of type MOBH (tx code RELMRC)
+        </li>
+    </ol>
+    <img src="..../assets/technical_details.png" alt="">
+    </p>
+
+    <h5>1.2.1 Object Summary</h5>
+    <table>
+        <tr>
+            <th>Object Name</th>
+            <th>Type</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>Z_TRM_PT_GIS</td>
+            <td>Package</td>
+            <td>TRM Property Tax - GIS Integration</td>
+        </tr>
+    </table>
+
+    <h5>1.2.2 Development Objects</h5>
+    <h5>1.2.3 Program Z_TRM_PARCEL_GIS_AREA_RATES</h5>
+
+    <h6>1.2.3.1 Selection Screen</h6>
+    <img src="../assets/selection_screen.png" alt="">
+
+    <table>
+        <tr>
+            <td>AAN</td>
+            <td>AAN Range to be selected</td>
+        </tr>
+        <tr>
+            <td>Area Rate GIS Date</td>
+            <td>Area Rate GIS Date (from parcel results ZDA_TRM_PTPLRES) to refine selection</td>
+        </tr>
+        <tr>
+            <td>Number of AANs per GIS call (Default 50)</td>
+            <td>How many AANs are put in each query. The GIS transfer limit is the number of Area rates returned (not
+                the
+                number of AANS). This is typically about 5x the AANN count)</td>
+        </tr>
+        <tr>
+            <td>Query by AAN/PID</td>
+            <td>Radiobutton to call the GIS query specifying AAN or PID. We generally call by AAN first. If any AANs do
+                not
+                get results, we can specify the GIS date and query by PID to see if that finds any more results.</td>
+        </tr>
+        <tr>
+            <td>Test Mode</td>
+            <td>The GIS API is not called (useful to test the query string generated)</td>
+        </tr>
+        <tr>
+            <td>Display selection in Popup</td>
+            <td>Useful in test mode to see the generated query string</td>
+        </tr>
+    </table>
+
+    <h5>1.2.4 Program Flow</h5>
+    <table>
+        <tr>
+            <th>Step</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+    </table>
+</body>
+
+</html>
