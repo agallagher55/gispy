@@ -6,7 +6,6 @@ from gispy import (
 )
 
 from configparser import ConfigParser
-
 from os import getcwd, environ
 
 arcpy.env.overwriteOutput = True
@@ -22,25 +21,21 @@ ADD_CODE_VALUES = {
     #     "M": "Memorandum of Understanding",
     #     "O": "Office of the Fire Marshall"
     # },
-    "AAA_operator_asset": {
-        "ki49835": "Kirk Mills",
+    "SourceAccuracy": {
+        "MO": "Modeled",
     },
 }
 
 REMOVE_CODE_VALUES = {
     # "Bldg_fsa_code": ["MOU", "OFM",],
-    }
-
+}
 
 if __name__ == "__main__":
-    local_gdb = utils.create_fgdb(CURRENT_DIR)
 
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
     print(f"\nPC Name: {PC_NAME}\n\tRunning from: {run_from}...")
-
-    local_gdb = utils.create_fgdb(out_folder_path=CURRENT_DIR, out_name="scratch.gdb")
 
     for dbs in [
         # [local_gdb, ],
@@ -75,7 +70,8 @@ if __name__ == "__main__":
                     domain_present, unfound_domains = domains.domains_in_db(local_gdb, required_domains)
 
                     if unfound_domains:
-                        prod_sde = config.get("SERVER", "prod_rw") if "APP" in PC_NAME else config.get("LOCAL", "prod_rw")
+                        prod_sde = config.get("SERVER", "prod_rw") if "APP" in PC_NAME else config.get("LOCAL",
+                                                                                                       "prod_rw")
 
                         domains.transfer_domains(
                             unfound_domains,
@@ -97,7 +93,8 @@ if __name__ == "__main__":
                     domain_found, unfound_domains = domains.domains_in_db(db, [domain])
 
                     if not domain_found:
-                        raise ValueError(f"Did not find domain '{domain}' in db. Unfound domains: {', '.join(unfound_domains)}")
+                        raise ValueError(
+                            f"Did not find domain '{domain}' in db. Unfound domains: {', '.join(unfound_domains)}")
 
                     add_code_values = ADD_CODE_VALUES[domain]
                     for count, code_value in enumerate(add_code_values, start=1):
