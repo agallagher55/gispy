@@ -7,14 +7,14 @@ from os import (
 import arcpy
 import logging
 
-from gispy.features import Feature
+from features import Feature
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
 log_file = path.join(
     getcwd(),
-    f"{date.today()}_add_fields.log"
+    f"{date.today()}_delete_fields.log"
 )
 
 logger = logging.getLogger('locators')
@@ -41,15 +41,13 @@ config.read('config.ini')
 
 CURRENT_DIR = getcwd()
 
-UPDATE_FEATURE = "SDEADM.TRN_pavement_marking"  # TODO: UPDATE ME
+UPDATE_FEATURE = "SDEADM.AST_tree"  # TODO: UPDATE ME
 
 SPATIAL_REFERENCE = None
 
 # TODO: UPDATE ME
 delete_fields = [
-    'BWL_1_8_QTY',
-    'BWL_0_5_QTY',
-    'BWL_3_0_QTY',
+    'CULTIVAR',
 ]
 
 if __name__ == "__main__":
@@ -68,9 +66,9 @@ if __name__ == "__main__":
         ],
 
         # [
-            # config.get(run_from, "qa_rw"),
-            # config.get(run_from, "qa_ro"),
-            # config.get(run_from, "qa_web_ro_gdb")
+        # config.get(run_from, "qa_rw"),
+        # config.get(run_from, "qa_ro"),
+        # config.get(run_from, "qa_web_ro_gdb")
         # ],
         # [
         #     config.get(run_from, "prod_rw"),
