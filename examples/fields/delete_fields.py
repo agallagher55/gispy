@@ -7,7 +7,6 @@ from os import (
 import arcpy
 import logging
 
-from gispy import utils
 from gispy.features import Feature
 
 arcpy.env.overwriteOutput = True
@@ -54,13 +53,11 @@ delete_fields = [
 ]
 
 if __name__ == "__main__":
-    local_gdb = utils.create_fgdb(CURRENT_DIR)
 
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
     for dbs in [
-        # [local_gdb, ],
 
         # WEBGIS features can use domains from SDEADM owner - don't need to create a domain for both SDEADM and WEBGIS
 
