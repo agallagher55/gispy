@@ -25,7 +25,7 @@ MAX_TABLE_NAME_LENGTH = 27
 config = ConfigParser()
 config.read('config.ini')
 
-SDE = config.get("LOCAL", "prod_rw")
+SDE = config.get("SERVER", "prod_rw")
 
 if "GIS" in os.environ.get("COMPUTERNAME").upper():
     SDE = config.get("SERVER", "prod_rw")
@@ -33,7 +33,7 @@ if "GIS" in os.environ.get("COMPUTERNAME").upper():
 SPATIAL_REFERENCE = os.path.join(SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
 
 EDIT_PERMISSIONS_USERS = [
-    "HRM\\GIS_TRAFFIC_EDITOR",
+    # "HRM\\GIS_TRAFFIC_EDITOR",
 ]
 
 SDSF_IGNORE_FIELDS = [
@@ -44,7 +44,7 @@ SDSF_IGNORE_FIELDS = [
 if __name__ == "__main__":
 
     # TODO: Update me
-    sdsf = r"T:\work\giss\monthly\202402feb\gallaga\ADM_traffic_analyst_zone\SDSform_ADM_Transportation_Analysis_Zone.xlsx"
+    sdsf = r"T:\work\giss\monthly\202502feb\gallaga\TRN_traffic_conflicts\Request for Change - Traffic Conflicts.xlsx"
     sheet_name = "DATASET DETAILS"
 
     # TODO: Update me
@@ -52,10 +52,10 @@ if __name__ == "__main__":
 
     # TODO: Update me
     unique_id_fields = {
-        'ADM_transportation_analysis_zone': [
+        'TRN_traffic_conflicts': [
             {
-                "field": "TAZ_ID",
-                "prefix": ""
+                "field": "TRCFID",
+                "prefix": "TRCF"
             },
         ]
     }
@@ -68,34 +68,28 @@ if __name__ == "__main__":
 
     # TODO: Update me
     READY_TO_ADD_TO_REPLICA = False
+    REPLICA_NAME = 'TRN_Rosde'
 
-    # TODO: Update me
-    REPLICA_NAME = 'ADM_Rosde'
-    
     SUBTYPES = False
     TOPOLOGY_DATASET = False
 
     SUBTYPE_FIELD = ""
     SUBTYPE_DOMAINS = {}
-    
+
     if ADD_EDITOR_TRACKING:
         SDSF_IGNORE_FIELDS.extend(["ADDBY", "ADDDATE", "MODBY", "MODDATE"])
 
     CURRENT_DIR = os.getcwd()
 
     for dbs in [
-        [utils.create_fgdb(out_folder_path=CURRENT_DIR, out_name="scratch.gdb")],
-        # [
-        #     config.get("SERVER", "dev_rw"),
-        #     config.get("SERVER", "dev_ro"),
-        # ],
+        [
+            config.get("SERVER", "dev_rw"),
+        ],
         # [
         #     config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
-        #     config.get("SERVER", "qa_web_ro_gdb"),
         # ],
         # [
-        #     config.get("SERVER", "prod_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
-        #     config.get("SERVER", "prod_ro"),
+        #     config.get("SERVER", "prod_rw"),
         # ],
 
     ]:
@@ -129,7 +123,8 @@ if __name__ == "__main__":
                     subtype_info = fields_report.subtype_info()
                     subtype_field = subtype_info.get("subtype_field")
                     subtype_field = \
-                    [value.get("subtype_field") for key, value in domain_data.items() if value.get("subtype_field")][0]
+                        [value.get("subtype_field") for key, value in domain_data.items() if
+                         value.get("subtype_field")][0]
                     subtype_domains_field = subtype_info.get("subtype_domains_field")
                     subtype_data = {key: value for key, value in domain_data.items() if
                                     domain_data[key].get("subtype_code")}
@@ -297,15 +292,13 @@ if __name__ == "__main__":
 
                         # COPY FEATURE TO RO, WEBGIS
                         ro_sdeadm_db = db.replace("RW", "RO")
-                        ro_webgis_db = ro_sdeadm_db.upper().replace("SDEADM", "WEBGIS")
 
                         ro_sdeadm_feature = os.path.join(ro_sdeadm_db, new_feature.feature_name)
-                        ro_webgis_feature = os.path.join(ro_webgis_db, new_feature.feature_name)
 
-                        for ro_feature, ro_db in (ro_sdeadm_feature, ro_sdeadm_db), (ro_webgis_feature, ro_webgis_db):
+                        for ro_feature, ro_db in (ro_sdeadm_feature, ro_sdeadm_db),:
 
                             # Don't need to add to WEB if feature is a table
-                            if ro_db == ro_webgis_db and feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
+                            if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
                                 print(f"\nFeature is a table - skipping adding to WEB RO...")
                                 continue
 
@@ -337,7 +330,7 @@ if __name__ == "__main__":
                             )
 
                         # Un-version RO feature, disable editor tracking, index
-                        for feature in ro_sdeadm_feature, ro_webgis_feature:
+                        for feature in ro_sdeadm_feature,:
 
                             if arcpy.Exists(
                                     feature):  # ro_webgis_feature may not have ever gotten created if it was a table.
