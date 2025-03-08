@@ -33,15 +33,22 @@ def execute_sql(sql_script: str, sde_conn):
 
 
 def pid_report(pids, out_file=r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\newparcels1.lst"):
+
+    pid_query = r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\pid_query.txt"
+
     print("\nCreating new PID report...")
 
     pid_list = [x[0] for x in pids]
+    query = "PID IN (" + ', '.join([f"'{x}'" for x in pid_list]) + ")"
 
     with open(out_file, "w") as writer:
         for row in pid_list:
             writer.write(f"{row}\n")
 
-    print(f"\tFile export to: '{out_file}'")
+    with open(pid_query, "w") as query_writer:
+        query_writer.write(query)
+
+    print(f"\tNew PID file exported to: '{out_file}'")
 
     return out_file
 
