@@ -16,10 +16,8 @@ from metadata import (
 
 from hrmutils.HRMutils import send_mail
 
-CONFIG_FILE = r"E:\HRM\Scripts\Python\Modules\gispy\parcelload\config.ini"
-
 config = ConfigParser()
-config.read(CONFIG_FILE)
+config.read("../config.ini")
 
 # Logging
 log_dir = os.getcwd()
