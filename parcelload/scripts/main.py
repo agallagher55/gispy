@@ -564,7 +564,7 @@ if __name__ == "__main__":
         # 'chapmas@Halifax.ca',
         # 'shijum@halifaxwater.ca',
         # 'caversj@halifax.ca',
-        # 'Francois.Malenfant@halifax.ca',
+        # 'ke59119@halifax.ca',
         # 'craign@halifax.ca',
         'gallaga@halifax.ca'
     ]
