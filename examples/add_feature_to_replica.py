@@ -1,27 +1,27 @@
 import arcpy
 import os
 
-from gispy.replicas import replicas
+from replicas import add_to_replica
 
 if __name__ == "__main__":
 
     dev_rw = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde"
     dev_ro = r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RO_sdeadm.sde"
 
-    qa_rw = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-    qa_ro = r"E:\HRM\Scripts\SDE\SQL\qa_RO_sdeadm.sde"
+    # qa_rw = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
+    # qa_ro = r"E:\HRM\Scripts\SDE\SQL\qa_RO_sdeadm.sde"
 
-    prod_rw = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
-    prod_ro = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RO_sdeadm.sde"
+    # prod_rw = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde"
+    # prod_ro = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RO_sdeadm.sde"
 
     for rw_sde, ro_sde in (
-            # (dev_rw, dev_ro),
-            (qa_rw, qa_ro),
+            (dev_rw, dev_ro),
+            # (qa_rw, qa_ro),
             # (prod_rw, prod_ro),
     ):
 
-        replica_name = "LND_Rosde"
-        replica_name = "ADM_Rosde"
+        # replica_name = "LND_Rosde"
+        # replica_name = "ADM_Rosde"
         replica_name = "TRN_Rosde"
 
         # current_workspace = replicas.Workspace(rw_sde)
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         #         txtfile.write(f"{feature}\n")
 
         new_features = [
-            "SDEADM.TRNLRS_segmented_street_events",
+            "SDEADM.TRN_STREET_RETIRED",
             # "SDEADM.ADM_community_planning_program",
             # "SDEADM.FLD_fp_SackRivers_100yr_v1",
             # "SDEADM.FLD_fp_SackRivers_100yr_v2",
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         #     topology_dataset=True
         # )
 
-        replicas.add_to_replica(
+        add_to_replica(
             replica_name=replica_name,
             rw_sde=rw_sde,
             ro_sde=ro_sde,
