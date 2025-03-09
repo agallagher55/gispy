@@ -1,7 +1,7 @@
 import arcpy
 import os
 
-from gispy.replicas import replicas
+from replicas import add_to_replica
 
 if __name__ == "__main__":
 
@@ -17,49 +17,54 @@ if __name__ == "__main__":
     for rw_sde, ro_sde in (
             # (dev_rw, dev_ro),
             (qa_rw, qa_ro),
-            (prod_rw, prod_ro),
+            # (prod_rw, prod_ro),
     ):
 
         # replica_name = "LND_Rosde"
-        # replica_name = "BLD_LND_Rosde"
-        replica_name = "ADM_Rosde"
-        # replica_name = "TRN_Rosde"
+        # replica_name = "ADM_Rosde"
+        replica_name = "TRN_Rosde"
 
-        replica_features = replicas.Replica(replica_name, rw_sde).datasets
+        topology_dataset = False
 
-        # Write current replica features
-        with open(f"{replica_name}.txt", "w") as txtfile:
-            for feature in sorted(list(set(replica_features))):
-                txtfile.write(f"{feature}\n")
+        # current_workspace = replicas.Workspace(rw_sde)
+        # workspace_replicas = [x.name for x in current_workspace.replicas]
+
+        # replica_features = replicas.Replica(replica_name, rw_sde).datasets
+        #
+        # # Write current replica features
+        # with open(f"{replica_name}.txt", "w") as txtfile:
+        #     for feature in sorted(list(set(replica_features))):
+        #         txtfile.write(f"{feature}\n")
+
+        new_features = [
+
+            "SDEADM.TRN_STREET_RETIRED"
+
+            # "SDEADM.ADM_community_planning_program",
+            # "SDEADM.FLD_fp_SackRivers_100yr_v1",
+            # "SDEADM.FLD_fp_SackRivers_100yr_v2",
+            # "SDEADM.FLD_fp_SackRivers_20yr_v1",
+            # "SDEADM.FLD_fp_SackRivers_20yr_v2"
+        ]
 
         # all_features = replica_features + new_features
 
-        new_features = [
-            "SDEADM.CEN_socio_economic_indicators",
-            # "SDEADM.LND_encampment_locations",
-            # "SDEADM.LND_encampment_sites",
-            # "SDEADM.LND_helipad_flight_path",
-            # "SDEADM.TRN_transportation_planning_proj",
-            # "SDEADM.ADM_waste_coll_area",
-            # "SDEADM.ADM_community_planning_program",
-            # "SDEADM.ADM_traffic_analyst_zone",
-            # "SDEADM.LND_ORA_STATUS_LOG",
-            # "SDEADM.BLD_BUILDING",
-            # "SDEADM.BLD_BUILDING_CIVIC_LINK",
-            # "SDEADM.BLD_BUILDING_USE",
-            # 'SDEADM.BLD_BUILDING_POLYGON'
-        ]
+        # replicas.add_to_replica(
+        #     replica_name=replica_name,
+        #     rw_sde=rw_sde,
+        #     ro_sde=ro_sde,
+        #     # add_features=all_features,
+        #     add_features=new_features,
+        #     topology_dataset=True
+        # )
 
-        create_new_replica = False
-
-        # add_features = all_features if create_new_replica else new_features
-
-        replicas.add_to_replica(
+        add_to_replica(
             replica_name=replica_name,
             rw_sde=rw_sde,
             ro_sde=ro_sde,
             add_features=new_features,
-            topology_dataset=False
+            topology_dataset=topology_dataset,
+            # feature_dataset="FLD_FP_SackvilleRivers"
         )
 
         # CHECKS
