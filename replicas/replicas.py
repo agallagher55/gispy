@@ -96,6 +96,7 @@ def add_to_replica(
     """
 
     # Check for GlobalIDs
+    print(f"Checking for GlobalIDs...")
     for workspace in rw_sde, ro_sde:
 
         with arcpy.EnvManager(workspace=workspace):
