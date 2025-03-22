@@ -115,7 +115,7 @@ def domains_in_db(db, domains: list):
     
     domains_found = False
 
-    db_domains = [domain.name for domain in arcpy.da.ListDomains(db)]
+    db_domains = sorted([domain.name for domain in arcpy.da.ListDomains(db)])
     unfound_domains = [d for d in domains if d not in db_domains]
     
     if not unfound_domains:
