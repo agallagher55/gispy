@@ -1,11 +1,9 @@
 import arcpy
 
-from gispy import (
-    domains,
-    utils
-)
+import domains
 
 from configparser import ConfigParser
+
 from os import getcwd, environ
 
 arcpy.env.overwriteOutput = True
@@ -17,12 +15,11 @@ config.read('config.ini')
 CURRENT_DIR = getcwd()
 
 ADD_CODE_VALUES = {
-    # "Bldg_fsa_code": {
-    #     "M": "Memorandum of Understanding",
-    #     "O": "Office of the Fire Marshall"
-    # },
-    "SourceAccuracy": {
-        "MO": "Modeled",
+    "LND_zoning_DART": {
+        "US-E": "US-E",
+    },
+    "LND_zoning_SHUB": {
+        "US-E": "US-E",
     },
 }
 
@@ -39,21 +36,21 @@ if __name__ == "__main__":
 
     for dbs in [
         # [local_gdb, ],
-        [
-            config.get("SERVER", "dev_rw"),
+        # [
+            # config.get("SERVER", "dev_rw"),
             # config.get("SERVER", "dev_ro"),
             # config.get("SERVER", "dev_web_ro_gdb"),  # ValueError: Did not find domain 'Bldg_fsa_code' in db. Found domains: Bldg_fsa_code
+        # ],
+        [
+            config.get("SERVER", "qa_rw"),
+            config.get("SERVER", "qa_ro"),
+            config.get("SERVER", "qa_web_ro_gdb"),
         ],
-        # [
-        #     config.get("SERVER", "qa_rw"),
-        #     config.get("SERVER", "qa_ro"),
-        #     # config.get("SERVER", "qa_web_ro_gdb"),
-        # ],
-        # [
-        #     config.get("SERVER", "prod_rw"),
-        #     config.get("SERVER", "prod_ro"),
-        #     # config.get("SERVER", "prod_web_ro_gdb"),
-        # ],
+        [
+            config.get("SERVER", "prod_rw"),
+            config.get("SERVER", "prod_ro"),
+            config.get("SERVER", "prod_web_ro_gdb"),
+        ],
 
     ]:
 
@@ -62,22 +59,6 @@ if __name__ == "__main__":
 
             for db in dbs:
                 print(f"\nDATABASE: {db}")
-
-                if db == local_gdb:
-
-                    # Check for domains in local workspace
-                    required_domains = set(list(ADD_CODE_VALUES.keys()) + list(REMOVE_CODE_VALUES.keys()))
-                    domain_present, unfound_domains = domains.domains_in_db(local_gdb, required_domains)
-
-                    if unfound_domains:
-                        prod_sde = config.get("SERVER", "prod_rw") if "APP" in PC_NAME else config.get("LOCAL",
-                                                                                                       "prod_rw")
-
-                        domains.transfer_domains(
-                            unfound_domains,
-                            local_gdb,
-                            from_workspace=prod_sde
-                        )
 
                 for domain in REMOVE_CODE_VALUES:
 
@@ -90,7 +71,7 @@ if __name__ == "__main__":
                     print(f"\tDOMAIN: {domain}")
 
                     # Check that domain is found in database connection
-                    domain_found, unfound_domains = domains.domains_in_db(db, [domain])
+                    domain_found, unfound_domains, db_domains = domains.domains_in_db(db, [domain])
 
                     if not domain_found:
                         raise ValueError(
