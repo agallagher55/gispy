@@ -121,7 +121,7 @@ def domains_in_db(db, domains: list):
     if not unfound_domains:
         domains_found = True
 
-    return domains_found, unfound_domains
+    return domains_found, unfound_domains, db_domains
 
 
 @arcpy_messages
