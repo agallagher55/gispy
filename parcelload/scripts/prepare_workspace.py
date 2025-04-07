@@ -52,43 +52,56 @@ log_formatter = logging.Formatter(
 file_handler.setFormatter(log_formatter)
 console_handler.setFormatter(log_formatter)
 
-# Set logging level
-file_handler.setLevel(logging.DEBUG)
-console_handler.setLevel(logging.DEBUG)
-
 # Create logger and add handlers
 logger = logging.getLogger(__name__)
+
+# Set logging level
+logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)  # Write logs to a file
 logger.addHandler(console_handler)  # logger.info logs to the console
 
 
-def prepare_workspace(workspace: str, new_parcel_data_dir: str):
+def prepare_workspace(workspace: str, new_parcel_data_dir: str) -> dict:
     """
-    This function is used to prepare a workspace for the backup and transfer of parcel data.
-    It takes in a single parameter, the path of the workspace.
-    It deletes any existing files in the workspace,
-    then copies new parcel data to the workspace and creates a new file geodatabase in the workspace.
+    Prepare the workspace by clearing old data, verifying the date match,
+    copying new data, and creating a new file geodatabase.
 
-    :param workspace: The path of the directory where the backup and transfer of parcel data will take place.
-    :return: The path of the prepared workspace
+    Args:
+        workspace (str): Path to the local workspace directory.
+        new_parcel_data_dir (str): Path to the source folder of new parcel data.
+
+    Returns:
+        dict: Contains paths to the prepared workspace and the new geodatabase.
     """
-
-    geodatabase = os.path.join(workspace, f"{CURRENT_MONTH}ParcelBackup.gdb")
 
     logger.info(f"Preparing workspace '{workspace}'...")
 
+    geodatabase = os.path.join(workspace, f"{CURRENT_MONTH}ParcelBackup.gdb")
+
     # Delete any existing files in your Scratch workspace, if present
     if os.path.exists(workspace):
-        logger.info(f"\tRemoving {workspace}...")
-        shutil.rmtree(workspace)  # deletes an entire directory tree (including subdirectories under it).
 
-    # TODO: Get month found in new_parcel_data_dir and check that it matches current month
-    parcel_data_dir_month = re.sub('\d', '', new_parcel_data_dir.split("\\")[
-        new_parcel_data_dir.split("\\").index('monthly') + 1
-    ]).title()
+        try:
+            logger.info(f"\tRemoving existing workspace: {workspace}")
+            shutil.rmtree(workspace)  # deletes an entire directory tree (including subdirectories under it).
 
-    if parcel_data_dir_month not in CURRENT_MONTH:
-        raise ValueError(f"Parcel Directory: {new_parcel_data_dir}, Current Month: {CURRENT_MONTH}. MAKE SURE THESE ARE THE SAME")
+        except Exception as e:
+            logger.error(f"Failed to delete workspace directory: {e}")
+            raise
+
+    # Validate the month in the source folder matches the current month
+    try:
+        parcel_data_dir_month = re.sub('\d', '', new_parcel_data_dir.split("\\")[
+            new_parcel_data_dir.split("\\").index('monthly') + 1
+            ]).title()
+
+        if parcel_data_dir_month not in CURRENT_MONTH:
+            raise ValueError(
+                f"Parcel Directory: {new_parcel_data_dir}, Current Month: {CURRENT_MONTH}. MAKE SURE THESE ARE THE SAME")
+
+    except (ValueError, IndexError) as e:
+        logger.error(f"Failed to parse date from folder name: {new_parcel_data_dir}")
+        raise ValueError("Could not extract date from parcel data directory. Check folder naming convention.") from e
 
     # Transfer new parcel data to workspace
     logger.info(f"Copying parcel files from {new_parcel_data_dir} to {workspace}...")
@@ -101,7 +114,10 @@ def prepare_workspace(workspace: str, new_parcel_data_dir: str):
         out_name=f"{CURRENT_MONTH}ParcelBackup.gdb"
     )
 
-    return workspace, geodatabase
+    return {
+        "workspace": workspace,
+        "geodatabase": geodatabase
+    }
 
 
 def backup_features(geodatabase: str):
@@ -378,11 +394,12 @@ def prepare_prov_shapefiles(feature_info: dict):
 
 
 if __name__ == "__main__":
+
     logger.info(f"{datetime.now()}")
     
-    workspace, workspace_gdb = prepare_workspace(PARCEL_LOAD_DIR, PARCEL_DATA_EXTRACT_DIR)
+    prepared_workspace = prepare_workspace(PARCEL_LOAD_DIR, PARCEL_DATA_EXTRACT_DIR)
 
-    backed_up_features = backup_features(workspace_gdb)
+    backed_up_features = backup_features(prepared_workspace['geodatabase'])
 
     # Section 2
     # Local variables:
