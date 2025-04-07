@@ -36,12 +36,9 @@ log_formatter = logging.Formatter(
 file_handler.setFormatter(log_formatter)
 console_handler.setFormatter(log_formatter)
 
-# Set logging level
-file_handler.setLevel(logging.DEBUG)
-console_handler.setLevel(logging.DEBUG)
-
 # Create logger and add handlers
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)  # Write logs to a file
 logger.addHandler(console_handler)  # logger.info logs to the console
 
@@ -158,20 +155,20 @@ def backup_and_trunc_parcel_point(workspace: str = r"C:\Workspace\Parcel_Load\Sc
 
     parcel_point_backup = os.path.join(workspace, "LND_PARCEL_POINT.shp")
 
-    print(f"\nBacking up {PARCEL_POINT_RW}...")
+    logger.info(f"Backing up {PARCEL_POINT_RW}...")
     arcpy.FeatureClassToShapefile_conversion(
         Input_Features=PARCEL_POINT_RW,
         Output_Folder=workspace,
     )
-    print(arcpy.GetMessages())
+    logger.info(arcpy.GetMessages())
 
     # Make sure backup has rows
     row_count = int(arcpy.GetCount_management(parcel_point_backup)[0])
-    print(f"Row count in {parcel_point_backup}: {row_count}")
+    logger.info(f"Row count in {parcel_point_backup}: {row_count}")
 
     if row_count > 0:
         # Truncate the feature class LND_PARCEL_POINT_OLD in SDE RW.
-        print(f"\tTruncating {PARCEL_POINT_OLD_SDE_RW}...")
+        logger.info(f"\tTruncating {PARCEL_POINT_OLD_SDE_RW}...")
         arcpy.TruncateTable_management(in_table=PARCEL_POINT_OLD_SDE_RW)
 
     else:
@@ -192,7 +189,7 @@ def truncate_load_linns(sde_rw=SDE_RW, sde_ro=SDE_RO, dbf_workspace=PARCEL_LOAD_
     :return:
     """
 
-    print("\nTruncating & Loading LINNS tables...")
+    logger.info("Truncating & Loading LINNS tables...")
 
     dbf_linns_pidaantax = os.path.join(dbf_workspace, "pidaantax.dbf")
     dbf_linns_pidnames = os.path.join(dbf_workspace, "pidnames.dbf")
@@ -232,7 +229,7 @@ def truncate_load_linns(sde_rw=SDE_RW, sde_ro=SDE_RO, dbf_workspace=PARCEL_LOAD_
         (rosde_linns_pidmstrs, None),
     ]:
         sde_feature, dbf_feature = features[0], features[1]
-        arcpy.AddMessage(f'\nTruncating {sde_feature}...')
+        arcpy.AddMessage(f'Truncating {sde_feature}...')
         arcpy.TruncateTable_management(sde_feature)
 
         if dbf_feature:
@@ -240,7 +237,7 @@ def truncate_load_linns(sde_rw=SDE_RW, sde_ro=SDE_RO, dbf_workspace=PARCEL_LOAD_
             arcpy.Append_management(dbf_feature, sde_feature, "NO_TEST", "", "")
 
         else:
-            print(f"\t**Need to append to {sde_feature} MANUALLY...\n")
+            logger.info(f"\t**Need to append to {sde_feature} MANUALLY...")
             # load_linns_pidmstrs(PIDMSTRS_DBF, sde_linns_pidmstrs)
 
             # feature class into the RW database with the data in the pidmstrs.dbf table from the province.
@@ -262,7 +259,7 @@ def load_linns_pidmstrs(dbf_pidmstrs: str, sde_pidmstrs: str):
 
     # TODO: add to truncate_load_linns() ?
 
-    print(f"\nLoading SDE LINNS table with dbf pidmstrs table, {dbf_pidmstrs}...")
+    logger.info(f"Loading SDE LINNS table with dbf pidmstrs table, {dbf_pidmstrs}...")
 
     linns_area_field = 'GISRW01.SDEADM.LINNS_PIDMSTRS.AREA'
 
@@ -277,11 +274,11 @@ def load_linns_pidmstrs(dbf_pidmstrs: str, sde_pidmstrs: str):
     linns_sde_row_count = int(arcpy.GetCount_management(sde_pidmstrs)[0])
 
     if linns_sde_row_count == 0:
-        print(f"\nLINNS SDE table has been truncated")
+        logger.info(f"LINNS SDE table has been truncated")
 
         # Insert records from LINNS dbf table into SDE table
         linns_local_row_count = len(local_linns_records)
-        print(f"Inserting {linns_local_row_count} records into LINNS SDE table...")
+        logger.info(f"Inserting {linns_local_row_count} records into LINNS SDE table...")
 
         linns_sde_fields = [
             "PID", "PID_STATUS", "LANDTITLE", "LANDRELATE", "PARCELTYPE", "CONDO_CORP", "OWNER_STAT",
@@ -303,7 +300,7 @@ def load_linns_pidmstrs(dbf_pidmstrs: str, sde_pidmstrs: str):
 
     # Fields should be set to Null - LANDREL_CD, UPD_Date
 
-    print("Check to make sure area field values are not null")
+    logger.info("Check to make sure area field values are not null")
 
     num_area_null = len([x for x in sde_linns_area if not x])  # This raised an error when it shouldn't have...?
     if all([x == 0.0 for x in sde_linns_area]) > 0:
@@ -327,7 +324,7 @@ def truncate_load_rw(shp_parcel_point):
 
     # TODO: Refactor/cleanup
 
-    print("Truncating & loading RW...")
+    logger.info("Truncating & loading RW...")
 
     # These get created in step 1
     shp_select_ghosted_line = os.path.join(PARCEL_LOAD_DIR, "Select_Ghosted_Line.shp")
@@ -343,11 +340,11 @@ def truncate_load_rw(shp_parcel_point):
 
         sde_feature, load_feature = features[0], features[1]
 
-        print(f"\nTruncating {sde_feature}...")
+        logger.info(f"Truncating {sde_feature}...")
         arcpy.TruncateTable_management(sde_feature)
 
         if sde_feature == PARCEL_POINT_OLD_SDE_RW:
-            print(f"\tLoading old parcel point, {shp_parcel_point}, into {PARCEL_POINT_OLD_SDE_RW}...")
+            logger.info(f"\tLoading old parcel point, {shp_parcel_point}, into {PARCEL_POINT_OLD_SDE_RW}...")
             arcpy.Append_management(
                 shp_parcel_point,
                 PARCEL_POINT_OLD_SDE_RW,
@@ -355,27 +352,27 @@ def truncate_load_rw(shp_parcel_point):
             )
 
         else:
-            print(f"\tAppending {load_feature} to {sde_feature}...")
+            logger.info(f"\tAppending {load_feature} to {sde_feature}...")
             arcpy.Append_management(load_feature, sde_feature, "NO_TEST")
 
 
 def truncate_load_linns_all_rw():
 
-    print(f"\nTruncating & loading '{LINNS_ALL_SDE_RW}'...")
+    logger.info(f"Truncating & loading '{LINNS_ALL_SDE_RW}'...")
 
     # Make sure backup has rows
     row_count = int(arcpy.GetCount_management(LINNS_ALL_SDE_RW)[0])
-    print(f"Current row count of {LINNS_ALL_SDE_RW}: {row_count}")
+    logger.info(f"Current row count of {LINNS_ALL_SDE_RW}: {row_count}")
     if row_count > 0:
         # Truncate the feature class LND_PARCEL_POINT_OLD in SDE RW.
-        print(f"\tTruncating {LINNS_ALL_SDE_RW}...")
+        logger.info(f"\tTruncating {LINNS_ALL_SDE_RW}...")
         arcpy.TruncateTable_management(in_table=LINNS_ALL_SDE_RW)
 
     else:
         raise ValueError(f"Did not find any records in the backup. Check backup was made successfully and run again.")
 
     # Append LINNS_ALL_STAGE to LINNS_ALL using the Append tool.
-    print(f"\nAppending {LINNS_ALL_STAGE_RW} into {LINNS_ALL_SDE_RW}...")
+    logger.info(f"Appending {LINNS_ALL_STAGE_RW} into {LINNS_ALL_SDE_RW}...")
     arcpy.Append_management(
         LINNS_ALL_STAGE_RW,
         LINNS_ALL_SDE_RW,
@@ -401,20 +398,20 @@ def load_pidmstrs_ro():
     2.	Load LINNS_PIDMSTR from RW database into LINNS_PIDMSTR in RO database.
     """
 
-    print("\nLoading PIDMSTRS (RO)...")
+    logger.info("Loading PIDMSTRS (RO)...")
 
     row_count = int(arcpy.GetCount_management(LINNS_PIDMSTRS_SDE_RO)[0])
-    print(f"RO row count: {row_count}")
+    logger.info(f"RO row count: {row_count}")
 
     if row_count > 0:
-        print(f"\nTruncating {LINNS_PIDMSTRS_SDE_RO}...")
+        logger.info(f"Truncating {LINNS_PIDMSTRS_SDE_RO}...")
         arcpy.TruncateTable_management(in_table=LINNS_PIDMSTRS_SDE_RO)
 
     omit_fields = ["LANDREL_CD", 'UPD_DATE']  # Prov data does not have these fields
     pid_mstrs_fields = [x.name for x in arcpy.ListFields(LINNS_PIDMSTRS_SDE_RW) if x.name not in omit_fields]
     linns_pidmstrs_rw_data = [row for row in arcpy.da.SearchCursor(LINNS_PIDMSTRS_SDE_RW, pid_mstrs_fields)]
 
-    print(f"Appending {LINNS_PIDMSTRS_SDE_RW} into {LINNS_PIDMSTRS_SDE_RO}...")
+    logger.info(f"Appending {LINNS_PIDMSTRS_SDE_RW} into {LINNS_PIDMSTRS_SDE_RO}...")
     pid_mstrs_fields = [
         'GISRO01.SDEADM.LINNS_PIDMSTRS.AREA' if x == 'GISRW01.SDEADM.LINNS_PIDMSTRS.AREA' else x
         for x in pid_mstrs_fields
@@ -438,21 +435,21 @@ def load_linns_all():
     2.	Load LINNS_ALL from RW database into LINNS_ALL in RO database.
     """
 
-    print("\nLoading LINNS_ALL (RO)...")
+    logger.info("Loading LINNS_ALL (RO)...")
 
     row_count = int(arcpy.GetCount_management(LINNS_ALL_SDE_RO)[0])
-    print(f"RO row count: {row_count}")
+    logger.info(f"RO row count: {row_count}")
 
     # Make sure backup has rows
     if row_count > 0:
         # Truncate the feature class LND_PARCEL_POINT_OLD in SDE RW.
-        print(f"\nTruncating {LINNS_ALL_SDE_RO}...")
+        logger.info(f"Truncating {LINNS_ALL_SDE_RO}...")
         arcpy.TruncateTable_management(in_table=LINNS_ALL_SDE_RO)
 
     else:
         raise ValueError(f"Did not find any records in the backup. Check backup was made successfully and run again.")
 
-    print(f"Appending {LINNS_ALL_SDE_RW} into {LINNS_ALL_SDE_RO}...")
+    logger.info(f"Appending {LINNS_ALL_SDE_RW} into {LINNS_ALL_SDE_RO}...")
     arcpy.Append_management(
         LINNS_ALL_SDE_RW,
         LINNS_ALL_SDE_RO,
@@ -470,7 +467,7 @@ def trunc_load_spatial_ro_data_from_rw(sde_ro, sde_rw):
     :return: 
     """
 
-    print("Truncating & loading RO...")
+    logger.info("Truncating & loading RO...")
 
     if sde_rw == '#' or not sde_rw:
         sde_rw = r"T:\work\giss\tools\Parcel Load\sdeadm_Prod_GIS_Halifax.sde"
@@ -499,14 +496,14 @@ def trunc_load_spatial_ro_data_from_rw(sde_ro, sde_rw):
 
     try:
         for source_feature, target_feature in feature_pairs:
-            arcpy.AddMessage(f"\nTruncating {target_feature} ...")
+            arcpy.AddMessage(f"Truncating {target_feature} ...")
             arcpy.TruncateTable_management(target_feature)
 
             arcpy.AddMessage(f"\tAppending {source_feature} to {target_feature} ...")
             arcpy.Append_management(source_feature, target_feature, "NO_TEST", "", "")
 
     except arcpy.ExecuteError:
-        msgs = "GP ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+        msgs = "GP ERRORS:" + arcpy.GetMessages(2) + ""
         arcpy.AddMessage(msgs)
 
 
@@ -516,7 +513,7 @@ if __name__ == "__main__":
 
     from datetime import datetime
 
-    logger.info(f"\n{datetime.now()}")
+    logger.info(f"{datetime.now()}")
 
     backup_gdb = os.path.join(PARCEL_LOAD_DIR, f"{CURRENT_MONTH}ParcelBackup.gdb")
     # TODO: Create workspace gdb (for LND_parcel_point)
@@ -536,7 +533,7 @@ if __name__ == "__main__":
 
     update_parcel_pt(SDE_RW, backup_gdb)
 
-    logger.info(f"\n{datetime.now()}\nRunning SQL scripts...")
+    logger.info(f"{datetime.now()}Running SQL scripts...")
 
     # new_pidreport_sql = r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\SQL Server\create_newpid_report.sql"  # @create_newpid_report.sql
     # update_parcel_line_fcode_sql = r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\SQL Server\update_parcel_line_fcode.sql"
@@ -554,7 +551,7 @@ if __name__ == "__main__":
 
     new_pid_report = sql_cmds.pid_report(
         pids=new_pids,
-        out_file=r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\newparcels1.lst"
+        out_file=r"T:\work\giss\tools\Parcel Load\Parcel Load sqlsewparcels1.lst"
     )
     os.startfile(r"T:\work\giss\tools\Parcel Load\Parcel Load sqls")
 
@@ -601,7 +598,7 @@ Alex Gallagher
     load_linns_all()
 
     # Update Metadata
-    logger.info("\nUpdating Metadata...")
+    logger.info("Updating Metadata...")
 
     DATE_TODAY = datetime.today().strftime('%Y-%m-%dT00:00:00')
 
@@ -639,21 +636,21 @@ Alex Gallagher
     # TODO: If working on server MSGISAPPQ203, move all files from C:\Workspace\Parcel_Load\Scratch to your monthly
     #  folder on the file share so that there is an empty Scratch folder on this server for next months Parcel Load.
     input(
-        "\nIf working on server MSGISAPPQ203, move all files from C:\Workspace\Parcel_Load\Scratch to your monthly "
+        "If working on server MSGISAPPQ203, move all files from C:\Workspace\Parcel_Load\Scratch to your monthly "
         "folder on the file share so that there is an empty Scratch folder on this server for next months Parcel Load."
     )
     # TODO: Do this automatically - script is typically run in the monthly folder
 
     # Cache Data Update
     # •	On the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler
-    input("\nOn the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler.")
+    input("On the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler.")
     
-    input("\nRun Analyze Compress Analyze on Server DC1-GIS-APP-P23.\nCurrent runs Saturdays @ 9am (until 10:30am)")
+    input("Run Analyze Compress Analyze on Server DC1-GIS-APP-P23.Current runs Saturdays @ 9am (until 10:30am)")
 
     # Update GOV_OWN_VW
-    input("\nUpdate GOV-Owned parcel layer - GOV_OWN_VW - Prov_Fed_Parcels\n"
+    input("Update GOV-Owned parcel layer - GOV_OWN_VW - Prov_Fed_Parcels"
           "E:\HRM\Scripts\Python\Modules\gispy\parcelload\Prov_Fed_Parcels\main.py")
 
     # TODO: Turn this into an imported function
 
-    logger.info(f"\n{datetime.now()}")
+    logger.info(f"{datetime.now()}")
