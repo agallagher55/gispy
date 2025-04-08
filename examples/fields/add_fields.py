@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 from datetime import date
+
 from os import (
     environ, getcwd, path
 )
@@ -7,8 +8,7 @@ from os import (
 import arcpy
 import logging
 
-from gispy import utils
-from gispy.features import Feature
+from features import Feature
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -42,43 +42,94 @@ config.read('config.ini')
 
 CURRENT_DIR = getcwd()
 
-UPDATE_FEATURE = "SDEADM.E_SpeedLimit"  # TODO: UPDATE ME
-
-SPATIAL_REFERENCE = None
-
 # TODO: UPDATE ME
 new_field_info = {
-    "REVIEW_STAT": {
-        "alias": "Neighbourhood Speed Review Status ",
-        "field_type": "TEXT",
-        "field_length": "5",
-        "nullable": "NULLABLE",
-        "default": "",
-        "domain": "TRN_speed_status"
+    "SDEADM.CEN_census_division_2021": {
+        "CENYEAR": {
+            "alias": "Census Year",
+            "field_type": "Short",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "CDPOP": {
+            "alias": "CD Population",
+            "field_type": "Long",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "CDPOPCHG": {
+            "alias": "CD Population Change",
+            "field_type": "Double",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "CDDWELL": {
+            "alias": "CD Private Dwellings",
+            "field_type": "Long",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "CDOCDWELL": {
+            "alias": "CD Occupied Dwellings",
+            "field_type": "Long",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "CDPOPDEN": {
+            "alias": "CD Population Density",
+            "field_type": "Double",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "SOURCE": {
+            "alias": "Data Source",
+            "field_type": "Text",
+            "field_length": "50",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        },
+        "RELDATE": {
+            "alias": "Released Date",
+            "field_type": "Date",
+            "field_length": "",
+            "nullable": "NULLABLE",
+            "default": "",
+            "domain": ""
+        }
     },
 }
 
 if __name__ == "__main__":
-    local_gdb = utils.create_fgdb(CURRENT_DIR)
 
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
     for dbs in [
-        # [local_gdb, ],
-
         # WEBGIS features can use domains from SDEADM owner - don't need to create a domain for both SDEADM and WEBGIS
 
         [
             config.get(run_from, "dev_rw"),
-            config.get(run_from, "dev_ro"),
-            config.get(run_from, "dev_web_ro_gdb")
+            # config.get(run_from, "dev_ro"),
+            # config.get(run_from, "dev_web_ro_gdb")
         ],
 
         # [
-            # config.get(run_from, "qa_rw"),
-            # config.get(run_from, "qa_ro"),
-            # config.get(run_from, "qa_web_ro_gdb")
+        # config.get(run_from, "qa_rw"),
+        # config.get(run_from, "qa_ro"),
+        # config.get(run_from, "qa_web_ro_gdb")
         # ],
         # [
         #     config.get(run_from, "prod_rw"),
@@ -88,49 +139,53 @@ if __name__ == "__main__":
     ]:
 
         if dbs:
-            logger.info(f"\nProcessing dbs: {', '.join(dbs)}...")
+            logger.info(f"Processing dbs: {', '.join(dbs)}...")
 
             for db in dbs:
                 logger.info(f"DATABASE: {db}")
 
-                if db.endswith(".gdb"):
-                    UPDATE_FEATURE = UPDATE_FEATURE.replace("SDEADM.", "")
+                for update_feature in new_field_info:
 
-                elif "WEBGIS" in db.upper():
-                    UPDATE_FEATURE = UPDATE_FEATURE.replace("SDEADM.", "WEBGIS.")
+                    if db.endswith(".gdb"):
+                        update_feature = update_feature.replace("SDEADM.", "")
 
-                logger.info(f"Feature: {UPDATE_FEATURE}")
+                    elif "WEBGIS" in db.upper():
+                        update_feature = update_feature.replace("SDEADM.", "WEBGIS.")
 
-                with arcpy.EnvManager(workspace=db):
+                    logger.info(f"Feature: {update_feature}")
 
-                    # Check if feature exists
-                    if not arcpy.Exists(UPDATE_FEATURE):
-                        raise ValueError(f"\tFeature, '{UPDATE_FEATURE}', does not exist.")
+                    with arcpy.EnvManager(workspace=db):
 
-                    desc = arcpy.Describe(UPDATE_FEATURE)
+                        # Check if feature exists
+                        if not arcpy.Exists(update_feature):
+                            raise ValueError(f"\tFeature, '{update_feature}', does not exist.")
 
-                    my_feature = Feature(db, desc.baseName, "POINT")
-                    current_fields = [x.name for x in arcpy.ListFields(UPDATE_FEATURE)]
+                        desc = arcpy.Describe(update_feature)
 
-                    # TODO: Stop services
+                        my_feature = Feature(db, desc.baseName, "POINT")
+                        current_fields = [x.name for x in arcpy.ListFields(update_feature)]
 
-                    for field in new_field_info:
-                        logger.info(f"\nField to add: '{field}'")
+                        # TODO: Stop services
 
-                        # Check that field doesn't already exist
+                        update_feature_new_field_info = new_field_info[update_feature]
 
-                        if field in current_fields:
-                            logger.info(f"Field, {field} already exists in {UPDATE_FEATURE}..!")
-                            continue
+                        for field in update_feature_new_field_info:
+                            logger.info(f"Field to add: '{field}'")
 
-                        logger.info(f"Adding {field} to {UPDATE_FEATURE}...")
-                        my_feature.add_field(
-                            field_name=field,
-                            field_type=new_field_info[field]["field_type"],
-                            length=new_field_info[field].get("field_length", "#"),
-                            alias=new_field_info[field]["alias"],
-                            domain_name=new_field_info[field]["domain"]
-                        )
+                            # Check that field doesn't already exist
 
-                    # TODO: Start services
-                    # * Had to manually unlock with SDE connection
+                            if field in current_fields:
+                                logger.info(f"Field, {field} already exists in {update_feature}..!")
+                                continue
+
+                            logger.info(f"Adding {field} to {update_feature}...")
+                            my_feature.add_field(
+                                field_name=field,
+                                field_type=update_feature_new_field_info[field]["field_type"],
+                                length=update_feature_new_field_info[field].get("field_length", "#"),
+                                alias=update_feature_new_field_info[field]["alias"],
+                                domain_name=update_feature_new_field_info[field]["domain"]
+                            )
+
+                        # TODO: Start services
+                        # * Had to manually unlock with SDE connection
