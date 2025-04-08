@@ -15,41 +15,59 @@ from configparser import ConfigParser
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
-# Config Parser
-config = ConfigParser()
-config.read("E:\\HRM\\Scripts\\Python\\config.ini")
+log_file = os.path.join(
+    os.getcwd(),
+    f"{datetime.date.today()}_alter_fields.log"
+)
 
-script_config = ConfigParser()
-script_config.read('config.ini')
+logger = logging.getLogger('locators')
+logger.setLevel(logging.DEBUG)
 
-# Logging
-log_dir = config.get('LOGGING', 'logDir')
-log_dir = os.getcwd()
+file_handler = logging.FileHandler(log_file)
+file_handler.setLevel(logging.INFO)
 
-# File handler
-logFile = log_dir + "\\script_logs.log"
-file_handler = logging.FileHandler(logFile)
-
-# Console handler
 console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
 
-# Configure formatter
 log_formatter = logging.Formatter(
     '%(asctime)s | %(levelname)s | FUNCTION: %(funcName)s | Msgs: %(message)s', datefmt='%d-%b-%y %H:%M:%S'
 )
+
 file_handler.setFormatter(log_formatter)
 console_handler.setFormatter(log_formatter)
 
-# Set logging level
-file_handler.setLevel(logging.DEBUG)
-console_handler.setLevel(logging.DEBUG)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
-# Create logger and add handlers
-logger = logging.getLogger('')
-logger.addHandler(file_handler)  # Write logs to a file
-logger.addHandler(console_handler)  # logger.info logs to the console
-
+config = ConfigParser()
+config.read('config.ini')
 # VARIABLES
+update_feature_info = {
+    "SDEADM.CEN_census_division_2016": {
+        "field": "LANDAREA",
+        "new_alias": "Land Area (sq km)",
+    },
+    "SDEADM.CEN_census_subdivision_2016": {
+        "field": "LANDAREA",
+        "new_alias": "Land Area (sq km)",
+    },
+    "SDEADM.CEN_census_metropolitian_area_2016": {
+        "field": "LANDAREA",
+        "new_alias": "Land Area (sq km)",
+    },
+    "SDEADM.CEN_census_subdivision_2021": {
+        "field": "LANDAREA",
+        "new_alias": "Land Area (sq km)",
+    },
+    "SDEADM.CEN_census_division_2021": {
+        "field": "LANDAREA",
+        "new_alias": "Land Area (sq km)",
+    },
+    "SDEADM.CEN_census_metropolitian_area_2021": {
+        "field": "LANDAREA",
+        "new_alias": "Land Area (sq km)",
+    },
+}
 
 
 # Functions
@@ -82,14 +100,19 @@ if __name__ == "__main__":
 
         for dbs in [
             # [
-            #     script_config.get("SERVER", "qa_rw"),
-            #     script_config.get("SERVER", "qa_ro"),
-            #     script_config.get("SERVER", "qa_web_ro_gdb"),
+            #     config.get(run_from, "dev_rw"),
+                # config.get(run_from, "dev_ro"),
+                # config.get(run_from, "dev_web_ro_gdb")
+            # ],
+            # [
+            #     config.get("SERVER", "qa_rw"),
+                # config.get("SERVER", "qa_ro"),
+                # config.get("SERVER", "qa_web_ro_gdb"),
             # ],
             [
-                script_config.get("SERVER", "prod_rw"),
-                script_config.get("SERVER", "prod_ro"),
-                script_config.get("SERVER", "prod_web_ro_gdb"),
+                config.get("SERVER", "prod_rw"),
+            #     config.get("SERVER", "prod_ro"),
+            #     config.get("SERVER", "prod_web_ro_gdb"),
             ],
         ]:
             if dbs:
@@ -98,18 +121,20 @@ if __name__ == "__main__":
                 for db in dbs:
                     print(f"\nDATABASE: {db}")
 
-                    # SDE = r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde"
-                    update_feature = "SDEADM.ADM_growth_control_area"
-                    if db.upper().endswith("GDB"):
-                        update_feature = update_feature.upper().replace("SDEADM.", "")
+                    for update_feature in update_feature_info:
 
-                    with arcpy.EnvManager(workspace=db):
-                        update_field_alias(
-                            feature=update_feature,
-                            field="GSA_NAME",
-                            field_alias='Community'
-                        )
-                        print(arcpy.GetMessages())
+                        if db.upper().endswith("GDB"):
+                            update_feature = update_feature.upper().replace("SDEADM.", "")
+
+                        with arcpy.EnvManager(workspace=db):
+                            field = update_feature_info[update_feature]['field']
+                            new_alias = update_feature_info[update_feature]['new_alias']
+                            update_field_alias(
+                                feature=update_feature,
+                                field=field,
+                                field_alias=new_alias
+                            )
+                            print(arcpy.GetMessages())
 
     except arcpy.ExecuteError:
         arcpy_msg = arcpy.GetMessages(2)
