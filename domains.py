@@ -112,12 +112,12 @@ def domains_in_db(db, domains: list):
     """
 
     print(f"\nChecking to see if domains {', '.join(domains)} exist in {db}...")
-    
+
     domains_found = False
 
-    db_domains = sorted([domain.name for domain in arcpy.da.ListDomains(db)])
-    unfound_domains = [d for d in domains if d not in db_domains]
-    
+    db_domains = sorted([domain.name.upper() for domain in arcpy.da.ListDomains(db)])
+    unfound_domains = [d for d in domains if d.upper() not in db_domains]
+
     if not unfound_domains:
         domains_found = True
 
@@ -165,10 +165,10 @@ def transfer_domains(domains: list, output_workspace, from_workspace) -> dict:
     """
 
     print(f"\nTransferring domains from '{from_workspace}' to '{output_workspace}'...")
-    
+
     from_workspace_domains = {x.name: {"coded_values": x.codedValues, "type": x.type} for x in
                               arcpy.da.ListDomains(from_workspace)}
-    
+
     output_workspace_domains = workspace_domains(output_workspace)
 
     unfound_domains = list()
@@ -253,4 +253,3 @@ def create_domain(
         split_policy=split_policy,
         merge_policy=merge_policy
     )[0]
-
