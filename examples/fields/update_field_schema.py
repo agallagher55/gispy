@@ -43,9 +43,11 @@ config = ConfigParser()
 config.read('config.ini')
 # VARIABLES
 update_feature_info = {
-    "SDEADM.TRN_curb_use": {
-        "field": "COMMENTS",
-        "new_length": 100,
+    "SDEADM.ADM_gflum_regplan": {
+        "field": "DESCRIP",
+        "new_name": "DESIG",
+        "new_alias": "Designation",
+        # "new_length": 6
     },
     # "SDEADM.CEN_census_subdivision_2016": {
     #     "field": "LANDAREA",
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     PC_NAME = os.environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    logger.info(f"\nPC Name: {PC_NAME}\n\tRunning from: {run_from}...")
+    logger.info(f"PC Name: {PC_NAME}\n\tRunning from: {run_from}...")
 
     try:
 
@@ -91,16 +93,16 @@ if __name__ == "__main__":
                 # config.get(run_from, "dev_ro"),
                 # config.get(run_from, "dev_web_ro_gdb")
             # ],
-            # [
-            #     config.get("SERVER", "qa_rw"),
-            #     config.get("SERVER", "qa_ro"),
-            #     config.get("SERVER", "qa_web_ro_gdb"),
-            # ],
             [
-                config.get("SERVER", "prod_rw"),
-                config.get("SERVER", "prod_ro"),
-                config.get("SERVER", "prod_web_ro_gdb"),
+                # config.get("SERVER", "qa_rw"),
+                # config.get("SERVER", "qa_ro"),
+                config.get("SERVER", "qa_web_ro_gdb"),
             ],
+            # [
+            #     config.get("SERVER", "prod_rw"),
+            #     config.get("SERVER", "prod_ro"),
+            #     config.get("SERVER", "prod_web_ro_gdb"),
+            # ],
         ]:
             if dbs:
                 logger.info(f"\nProcessing dbs: {', '.join(dbs)}...")
@@ -110,9 +112,6 @@ if __name__ == "__main__":
 
                     for update_feature in update_feature_info:
 
-                        if db.upper().endswith("GDB"):
-                            update_feature = update_feature.upper().replace("SDEADM.", "")
-
                         with arcpy.EnvManager(workspace=db):
 
                             field = update_feature_info[update_feature]['field']
@@ -121,6 +120,9 @@ if __name__ == "__main__":
                             new_length = update_feature_info[update_feature].get('new_length')
                             new_name = update_feature_info[update_feature].get('new_name')
                             new_type = update_feature_info[update_feature].get('new_type')
+
+                            if db.upper().endswith("GDB"):
+                                update_feature = update_feature.upper().replace("SDEADM.", "")
 
                             update_field_config(
                                 feature=update_feature,
