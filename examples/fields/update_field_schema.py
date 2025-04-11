@@ -43,46 +43,33 @@ config = ConfigParser()
 config.read('config.ini')
 # VARIABLES
 update_feature_info = {
-    "SDEADM.CEN_census_division_2016": {
-        "field": "LANDAREA",
-        "new_alias": "Land Area (sq km)",
+    "SDEADM.TRN_curb_use": {
+        "field": "COMMENTS",
+        "new_length": 100,
     },
-    "SDEADM.CEN_census_subdivision_2016": {
-        "field": "LANDAREA",
-        "new_alias": "Land Area (sq km)",
-    },
-    "SDEADM.CEN_census_metropolitian_area_2016": {
-        "field": "LANDAREA",
-        "new_alias": "Land Area (sq km)",
-    },
-    "SDEADM.CEN_census_subdivision_2021": {
-        "field": "LANDAREA",
-        "new_alias": "Land Area (sq km)",
-    },
-    "SDEADM.CEN_census_division_2021": {
-        "field": "LANDAREA",
-        "new_alias": "Land Area (sq km)",
-    },
-    "SDEADM.CEN_census_metropolitian_area_2021": {
-        "field": "LANDAREA",
-        "new_alias": "Land Area (sq km)",
-    },
+    # "SDEADM.CEN_census_subdivision_2016": {
+    #     "field": "LANDAREA",
+    #     "new_alias": "Land Area (sq km)",
+    # },
 }
 
 
 # Functions
-def update_field_alias(feature, field, field_alias):
-    print(f"\nUpdating field '{field}' in feature '{feature}' to alias '{field_alias}'...")
+def update_field_config(feature, field=None, alias=None, name=None, field_type=None, length=None, nullable=None):
+
+    logger.info(f"Updating field configuration...")
+
     arcpy.AlterField_management(
         in_table=feature,
         field=field,
-        # new_field_name=None,
-        new_field_alias=field_alias,
-        # field_type=None,
-        # field_length=None,
-        # field_is_nullable=None,
-        # clear_field_alias=None
+        new_field_name=name,
+        new_field_alias=alias,
+        field_type=field_type,
+        field_length=length,
+        field_is_nullable=nullable,
+        clear_field_alias='#'
     )
+    logger.info(arcpy.GetMessages())
 
 
 if __name__ == "__main__":
@@ -94,32 +81,32 @@ if __name__ == "__main__":
     PC_NAME = os.environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    print(f"\nPC Name: {PC_NAME}\n\tRunning from: {run_from}...")
+    logger.info(f"\nPC Name: {PC_NAME}\n\tRunning from: {run_from}...")
 
     try:
 
         for dbs in [
             # [
-            #     config.get(run_from, "dev_rw"),
+                # config.get(run_from, "dev_rw"),
                 # config.get(run_from, "dev_ro"),
                 # config.get(run_from, "dev_web_ro_gdb")
             # ],
             # [
             #     config.get("SERVER", "qa_rw"),
-                # config.get("SERVER", "qa_ro"),
-                # config.get("SERVER", "qa_web_ro_gdb"),
+            #     config.get("SERVER", "qa_ro"),
+            #     config.get("SERVER", "qa_web_ro_gdb"),
             # ],
             [
                 config.get("SERVER", "prod_rw"),
-            #     config.get("SERVER", "prod_ro"),
-            #     config.get("SERVER", "prod_web_ro_gdb"),
+                config.get("SERVER", "prod_ro"),
+                config.get("SERVER", "prod_web_ro_gdb"),
             ],
         ]:
             if dbs:
-                print(f"\nProcessing dbs: {', '.join(dbs)}...")
+                logger.info(f"\nProcessing dbs: {', '.join(dbs)}...")
 
                 for db in dbs:
-                    print(f"\nDATABASE: {db}")
+                    logger.info(f"\nDATABASE: {db}")
 
                     for update_feature in update_feature_info:
 
@@ -127,21 +114,32 @@ if __name__ == "__main__":
                             update_feature = update_feature.upper().replace("SDEADM.", "")
 
                         with arcpy.EnvManager(workspace=db):
+
                             field = update_feature_info[update_feature]['field']
-                            new_alias = update_feature_info[update_feature]['new_alias']
-                            update_field_alias(
+
+                            new_alias = update_feature_info[update_feature].get('new_alias')
+                            new_length = update_feature_info[update_feature].get('new_length')
+                            new_name = update_feature_info[update_feature].get('new_name')
+                            new_type = update_feature_info[update_feature].get('new_type')
+
+                            update_field_config(
                                 feature=update_feature,
                                 field=field,
-                                field_alias=new_alias
+                                name=new_name,
+                                alias=new_alias,
+                                field_type=new_type,
+                                length=new_length,
+                                nullable="#",
                             )
-                            print(arcpy.GetMessages())
+
+                            logger.info(arcpy.GetMessages())
 
     except arcpy.ExecuteError:
         arcpy_msg = arcpy.GetMessages(2)
         logger.error(arcpy_msg)
 
     except Exception as e:
-        print(e)
+        logger.info(e)
 
         # Return any python specific errors as well as any errors from the geoprocessor
         tb = sys.exc_info()[2]
