@@ -90,9 +90,6 @@ def add_sequence_rule(workspace, feature_name, field_name, sequence_prefix="", p
     feature_prefix = os.path.basename(feature_name).split("_")[0]
     if not sequence_name:
         sequence_name = field_name
-        
-    rule_description = f"{os.path.basename(feature_name)} - {field_name} - Generate ID"
-    expression = f"'{sequence_prefix}' + NextSequenceValue('sdeadm.{sequence_name}')"  # for SDE features
 
     if padded_sequence:
         expression = f"""
@@ -112,9 +109,13 @@ def add_sequence_rule(workspace, feature_name, field_name, sequence_prefix="", p
 
     if field_name in ("ASSETID", "ASSET_ID"):
         sequence_name = (
-                    os.path.basename(feature_name).replace("_", "").replace(feature_prefix, "") + field_name).upper()
+                    os.path.basename(feature_name).replace("_", "").replace(feature_prefix, "") + field_name
+        ).upper()
         # raise ValueError(f"Sequence for {field_name} needs a different sequence name.")
 
+    rule_description = f"{os.path.basename(feature_name)} - {field_name} - Generate ID"
+    expression = f"'{sequence_prefix}' + NextSequenceValue('sdeadm.{sequence_name}')"  # for SDE features
+    
     in_feature = os.path.join(workspace, feature_name)
 
     # Make sure Attribute Rule does not already exist.
