@@ -1,248 +1,425 @@
-import pandas as pd
+import os
+import arcpy
 
+from gispy import (
+    connections,
+    attribute_rules,
+    utils,
+)
 
-class SpatialDataSubmissionFormError(Exception):
-    pass
+from gispy.replicas import replicas
 
+from configparser import ConfigParser
 
-class Report:
-    def __init__(self, excel_path, sheet_name="DATASET DETAILS"):
-        self.source = excel_path
-        self.sheet_name = sheet_name
+from gispy.subtypes import create_subtype
+from gispy.domains import transfer_domains, domains_in_db
 
-        self.df = self.to_dataframe(self.sheet_name)
-        self.feature_class_name, self.feature_shape, self.feature_type = self.report_details()
+from gispy.SpatialDataSubmissionForms.features import Feature
+from gispy.SpatialDataSubmissionForms.reporter import FieldsReport, DomainsReport
 
-    def to_dataframe(self, sheet_name):
-        df = pd.read_excel(
-            io=self.source,
-            sheet_name=sheet_name,
-            index_col=0
-        )
-        df = df.where(pd.notnull(df), None)  # Remove NaN values with None
-        df = df[pd.notnull(df.index)]  # Remove blank lines from index
-        return df
+arcpy.env.overwriteOutput = True
+arcpy.SetLogHistory(False)
 
-    def report_details(self):
-        df_feature_details = self.df.iloc[0:3, 0:1]  # first col in excel is index - col 0 in df is second col in excel
-        df_feature_details = df_feature_details.where(pd.notnull(df_feature_details), None)  # Convert nan to None
+MAX_TABLE_NAME_LENGTH = 27
 
-        df_feature_details = df_feature_details.T  # Transpose
-        df_feature_details.columns = [x.strip(":") for x in df_feature_details.columns]
+config = ConfigParser()
+config.read('config.ini')
 
-        # Check for 'Feature Class Name' or 'Data Source Name' column and get the value
-        if 'Feature Class Name' in df_feature_details.columns:
-            feature_class_name = df_feature_details['Feature Class Name'].values[0]
+SDE = config.get("SERVER", "prod_rw")
 
-        elif 'Data Source Name' in df_feature_details.columns:
-            feature_class_name = df_feature_details['Data Source Name'].values[0]
+if "GIS" in os.environ.get("COMPUTERNAME").upper():
+    SDE = config.get("SERVER", "prod_rw")
 
-        else:
-            raise ValueError("Neither 'Feature Class Name' nor 'Data Source Name' column found in the DataFrame")
+SPATIAL_REFERENCE = os.path.join(SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
 
-        shape_type = df_feature_details["Shape Type"].values[0] or "Enterprise Geodatabase Table"
-        feature_type = df_feature_details["Feature Type"].values[0]
+EDIT_PERMISSIONS_USERS = [
+    # "HRM\\GIS_TRAFFIC_EDITOR",
+]
 
-        return [feature_class_name, shape_type, feature_type]
+SDSF_IGNORE_FIELDS = [
+    "OBJECTID", "GLOBALID",
+    "SHAPE", "SHAPE_AREA", "SHAPE_LENGTH"
+]
 
+if __name__ == "__main__":
 
-class SDSFMetaData:
+    # TODO: Update me
+    sdsf = r"T:\work\giss\monthly\202505may\gallaga\Road_Patrol\Create_SDE_Road_patrol_inspections_street.xlsx"
+    sheet_name = "DATASET DETAILS"
 
-    def __init__(self, excel_path, sheet_name="SDSF"):
-        self.source = excel_path
+    # TODO: Update me
+    ADD_EDITOR_TRACKING = True
 
-        self.df = pd.read_excel(source, sheet_name=sheet_name)
+    # TODO: Update me
+    unique_id_fields = {
+        # 'TRN_curb_use': [
+        #     {
+        #         "field": "CURBID",
+        #         "prefix": "CURB"
+        #     },
+        # ]
+    }
 
-        self.name = self.get_name()
+    # TODO: Update me
+    new_domain_types = {
+        # "TRN_curbuse_type": "TEXT",
+        # "TRN_curb_qualifier": "SHORT",
+        # "TRN_parking_duration": "TEXT"
+    }
 
-        self.description = self.get_description()
-        self.summary = self.get_summary()
-        self.tags = self.get_tags()
+    # TODO: Update me
+    READY_TO_ADD_TO_REPLICA = True
+    REPLICA_NAME = 'TRN_Rosde'
 
-        self.limitations = self.get_limitations()
+    SUBTYPES = False
+    TOPOLOGY_DATASET = False
 
-    def __repr__(self):
-        return self.name
+    SUBTYPE_FIELD = ""
+    SUBTYPE_DOMAINS = {}
+
+    if ADD_EDITOR_TRACKING:
+        SDSF_IGNORE_FIELDS.extend(["ADDBY", "ADDDATE", "MODBY", "MODDATE"])
+
+    CURRENT_DIR = os.getcwd()
 
-    def get_description(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Description:'].index[0]
-        desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+    for dbs in [
+        [
+            config.get("SERVER", "dev_rw"),
+        ],
+        # [
+        #     config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
+        # ],
+        # [
+        #     config.get("SERVER", "prod_rw"),
+        # ],
 
-    def get_summary(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Purpose:'].index[0]
-        desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+    ]:
 
-    def get_tags(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Tags:'].index[0]
-        tags = self.df.iloc[header_idx + 1, 0]  # row, col
-        return tags
-
-    def get_limitations(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Notes or Disclaimers:'].index[0]
-        limits = self.df.iloc[header_idx + 1, 0]  # row, col
-        return limits
-
-    def get_name(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Name:'].index[0]
-        name = self.df.iloc[header_idx, 1]  # row, col
-        return f"METADATA: {name}"
-
-
-class FieldsReport(Report):
-    
-    last_field_name = "GLOBALID"
-    def __init__(self, excel_path, sheet_name="DATASET DETAILS"):
-        super().__init__(excel_path, sheet_name)
-        self.field_details = self.field_info()
-
-        if "Subtype Field" in [x for x in self.field_details.columns]:
-            self.subtype_fields = self.subtype_info()
-
-    def subtype_info(self):
-        fields_df = self.field_details
-
-        if "Subtype Field" not in [x for x in fields_df.columns]:
-            return ()
-
-        subtype_field_df = fields_df[fields_df["Subtype Field"].notnull()]
-
-        if not subtype_field_df.empty:
-            subtype_fields = (x for x in subtype_field_df["Field Name"])
-            return subtype_fields
-
-    def field_info(self):
-        df_index_values = self.df.index.values.tolist()
-
-        if self.feature_type.upper() == "FEATURE CLASS":
-            FieldsReport.last_field_name = "SHAPE_Length"
-
-            if self.feature_shape.upper() == "POLYGON":
-                if "SHAPE_AREA" not in [str(x).upper() for x in df_index_values] or "SHAPE_LENGTH" not in [str(x).upper() for x in df_index_values]:
-                    raise IndexError(f"ERROR: SDSF needs to have SHAPE_AREA and SHAPE_LENGTH fields.")
-
-            elif self.feature_shape.upper() == "LINE":
-                if "SHAPE_LENGTH" not in [str(x).upper() for x in df_index_values]:
-                    raise IndexError(f"ERROR: SDSF needs to have a SHAPE_LENGTH field.")
-
-            elif self.feature_shape.upper() == "NOT APPLICABLE":
-                FieldsReport.last_field_name = "GLOBALID"
-
-        df_field_details = self.df.loc["Field Name":FieldsReport.last_field_name]
-
-        df_field_details.reset_index(inplace=True)
-
-        df_field_details.columns = df_field_details.iloc[0]  # Set DataFrame columns as first row
-        columns = [x for x in df_field_details.columns if x]
-
-        df_field_details = df_field_details.loc[:, columns]  # Limit columns to columns list
-
-        df_field_details = df_field_details.iloc[1:]  # Ignore columns row as a data row
-
-        return df_field_details
-
-    def domain_fields(self) -> dict:
-        domain_fields = self.field_details[["Field Name", "Domain", "Field Type"]][
-            ~self.field_details["Domain"].isnull()]
-
-        domain_fields_info = domain_fields.to_dict("records")
-
-        return domain_fields_info
-
-
-class DomainsReport(Report):
-    def __init__(self, excel_path, subtype_field=(), sheet_name="DATASET DETAILS"):
-        super().__init__(excel_path, sheet_name)
-
-        self.subtype_field = subtype_field
-
-        self.domain_df = pd.DataFrame()
-
-        self.domain_names, self.domain_data = list(), dict()
-
-    def domain_info(self):
-        """
-        :return: {domain_name, dataframe, subtype_code}
-        """
-
-        domain_dataframes = dict()
-
-        # Get domain info from main spreadsheet - Starts at first row after "Common Attribute Values for Fields"
-        self.domain_df = self.df.loc["Common Attribute Values for Fields":].iloc[1:]
-
-        # Check index for a mis-named SourceAccuracy field
-        df_index = self.domain_df.index.tolist()
-        for count, value in enumerate(df_index):
-            if type(value) == str and "SourceAccuracy" in value:
-                df_index[count] = "SourceAccuracy"
-
-        self.domain_df.index = df_index
-
-        # Create json structure for domains
-        index_data = dict()
-        subtype_data = dict()
-
-        # Iterate through index to domains
-        for count, index_value in enumerate(self.domain_df.index):
-
-            if str(index_value).upper() == "CODE":
-                domain_name = self.domain_df.index[count - 1]
-
-                row_index_start = self.domain_df.index.tolist().index(domain_name)  # Domain name will precede row index with value of Code
-
-                index_data[domain_name] = {"start_index": row_index_start}
-
-        domain_names = list(index_data.keys())
-        last_domain = domain_names[-1]
-
-        # Check that no spaces are in domain - make sure SDSF is filled out correctly
-        bad_domain_names = list()
-
-        for domain_name in domain_names:
-            if domain_name.count(" ") > 0:
-                bad_domain_names.append(domain_name)
-
-        if bad_domain_names:
-            error_message = f"\n\tDomain filled out incorrectly. " \
-                            f"Double check domain names, '{', '.join(bad_domain_names)}' and " \
-                            f"ensure no spaces are present."
-            raise SpatialDataSubmissionFormError(error_message)
-
-        for count, current_domain_name in enumerate(domain_names):
-            next_domain = None
-
-            if current_domain_name != last_domain:
-                next_domain = domain_names[count + 1]
-
-            if next_domain:
-                domain_df = self.domain_df.loc[current_domain_name: next_domain]
-
-            else:
-                domain_df = self.domain_df.loc[current_domain_name:]
-
-            domain_df.reset_index(inplace=True)  # Adds current index as first column
-            domain_df.columns = domain_df.iloc[1]  # Set first column as df header
-
-            domain_name = domain_df.iloc[0, 0]
-            domain_field = domain_df.iloc[0, 1]
-            subtype_code = domain_df.iloc[0, 2]
-            domain_subtype = {"subtype_code": subtype_code, "domain_field": domain_field, "subtype_field": self.subtype_field}  # TODO: include subtype field
-            subtype_data[domain_name] = domain_subtype
-
-            if next_domain:
-                # domain name, domain field, subtype code
-                domain_df = domain_df.iloc[2:-1, :2]  # Only select 2nd to 2nd last row and first two columns
-
-            else:
-                domain_df = domain_df.iloc[2:, :2]  # Only select 2nd to 2nd last row and first two columns
-
-            domain_df.dropna(inplace=True)
-
-            # Clean
-            # Remove any domain dataframes with empty rows
-            num_df_rows = len(domain_df.index)
-            if not num_df_rows == 0:
-                domain_dataframes[current_domain_name] = domain_df
-
-        return subtype_data, domain_dataframes
+        for count, db in enumerate(dbs, start=1):
+            print(f"\n{count}/{len(dbs)}) Database: {db}")
+
+            # Determine the type and read-write status of a database. Ex) SDE + RW, SDE + RO, GDB, etc.
+            db_type, db_rights = connections.connection_type(db)
+
+            for xl_file in [
+                sdsf,
+            ]:
+                print(f"\nCreating feature from {xl_file}...")
+                fields_report = FieldsReport(xl_file)
+
+                feature_name = fields_report.feature_class_name  # Should be all lower case except for the prefix
+                feature_shape = fields_report.feature_shape
+
+                if feature_shape.upper() == "LINE":
+                    feature_shape = "Polyline"
+
+                field_data = fields_report.field_details
+
+                domains_report = DomainsReport(xl_file)
+
+                domain_data, domain_dataframes = domains_report.domain_info()
+                domain_names = list(domain_data.keys())
+
+                if SUBTYPES:
+                    subtype_info = fields_report.subtype_info()
+                    subtype_field = subtype_info.get("subtype_field")
+                    subtype_field = \
+                        [value.get("subtype_field") for key, value in domain_data.items() if
+                         value.get("subtype_field")][0]
+                    subtype_domains_field = subtype_info.get("subtype_domains_field")
+                    subtype_data = {key: value for key, value in domain_data.items() if
+                                    domain_data[key].get("subtype_code")}
+
+                if db_type == "GDB":
+
+                    # Transfer existing domains to local dgb and find new domains not in SDE
+                    new_domains = transfer_domains(
+                        domains=domain_names,
+                        output_workspace=db,
+                        from_workspace=SDE
+                    ).get("unfound_domains")
+
+                else:
+                    # Check for new domains not found in sde
+                    domains_in_sde, new_domains, db_domains = domains_in_db(db, domain_names)
+
+                # Create any new domains
+                if new_domains:
+                    print(f"\nNew domains to create: {', '.join(new_domains)}")
+                    # These should all be found in fields_report.field_details
+
+                    for domain in new_domains:
+
+                        try:
+                            field_type = "TEXT"
+
+                            if domain in new_domain_types:
+                                field_type = new_domain_types.get(domain)
+
+                            # Check if domain is a subtype domain
+                            if SUBTYPE_DOMAINS:
+                                if domain in [d["domain"] for d in SUBTYPE_DOMAINS["domains"]]:
+                                    field_type = "LONG"
+                                    print("\t*Subtype Domain Found!")
+
+                            print(f"\n\tCreating domain '{domain}'...")
+                            arcpy.CreateDomain_management(
+                                in_workspace=db,
+                                domain_name=domain,
+                                field_type=field_type,
+                                domain_type="CODED",
+                                domain_description="",
+                                split_policy="DUPLICATE"
+                            )
+                            # Sometimes this says it 'fails', but domain still gets created
+
+                        except arcpy.ExecuteError:
+                            arcpy_msg = arcpy.GetMessages(2)
+                            print(f"Arcpy Error: {arcpy_msg}")
+                            print(f"^^^*(Sometimes this fails in the script, but domain still gets created.)")
+
+                        domain_df = domain_dataframes.get(domain)
+
+                        # Populate new domains with codes and values:
+                        sort_key = lambda x: x.Description
+
+                        if SUBTYPE_DOMAINS:
+                            if domain in [d["domain"] for d in SUBTYPE_DOMAINS["domains"]]:
+                                sort_key = lambda x: x.Code
+
+                        for row in sorted([x for x in domain_df.itertuples()], key=sort_key):
+                            code = row.Code
+                            desc = row.Description
+
+                            print(f"\tAdding ({code}: {desc})")
+                            arcpy.AddCodedValueToDomain_management(
+                                in_workspace=db,
+                                domain_name=domain,
+                                code=code,
+                                code_description=desc
+                            )
+
+                else:
+                    print("\nNO new domains to create.")
+
+                # Create the feature and add fields
+                if (db_type == "SDE" and db_rights == "RW") or (db_type == "GDB" and not db_rights):
+
+                    new_feature = Feature(
+                        workspace=db,
+                        feature_name=feature_name,
+                        geometry_type=feature_shape,
+                        spatial_reference=SPATIAL_REFERENCE
+                    )
+
+                    print("\nAdding Fields...")
+                    feature_fields = field_data["Field Name"].values
+
+                    for row_num, row in field_data.iterrows():
+
+                        field_name = row["Field Name"].upper().strip()
+                        field_length = row["Field Length (# of characters)"]
+
+                        if field_name not in SDSF_IGNORE_FIELDS:
+                            alias = row["Alias"]
+                            field_type = row["Field Type"]
+                            field_len = field_length
+                            nullable = row["Nullable"]
+                            default_value = row["Default Value"]
+                            domain = row["Domain"] or "#"
+
+                            if field_length:
+                                field_length = int(field_length)
+
+                            if field_type == "TEXT" and not field_length:
+                                raise ValueError(
+                                    f"Field {field_name} of type {field_type} needs to have a field length.")
+
+                            new_feature.add_field(
+                                field_name=field_name.upper(),
+                                field_type=field_type,
+                                length=field_len,
+                                alias=alias,
+                                # nullable=nullable,
+                                domain_name=domain
+                            )
+
+                            if domain and domain != "#":
+                                print(f"\t\t{field_name} has domain: '{domain}'")
+                                new_feature.assign_domain(
+                                    field_name=field_name,
+                                    domain_name=domain,
+                                    subtypes="#"
+                                )
+
+                            # Apply default values for fields, if applicable
+                            if default_value:
+                                new_feature.add_field_default(
+                                    field=field_name,
+                                    default_value=default_value
+                                )
+
+                    # ADD GLOBAL IDS
+                    new_feature.add_gloablids()
+
+                    if ADD_EDITOR_TRACKING:
+                        # ADD EDITOR TRACKING FIELDS
+                        if db_type in ("SDE", "GDB") and db_rights in ("RW", ""):
+                            new_feature.add_editor_tracking_fields()
+
+                    # Update Privileges
+                    if db_type != "GDB":
+                        new_feature.change_privileges(
+                            user="PUBLIC",
+                            view="GRANT"
+                        )
+
+                        for user in EDIT_PERMISSIONS_USERS:
+                            print(f"\nEnabling privileges for {user}")
+                            arcpy.ChangePrivileges_management(
+                                in_dataset=new_feature.feature,
+                                user=user,
+                                Edit="GRANT"
+                            )
+
+                    # SUBTYPES
+                    if SUBTYPES:
+                        create_subtype(new_feature.feature, SUBTYPE_FIELD, SUBTYPES, SUBTYPE_DOMAINS)
+
+                    if db_type == "SDE" and db_rights == "RW":
+
+                        # Register as Versioned
+                        new_feature.register_as_versioned()  # needs to be versioned to add to replica
+
+                        # COPY FEATURE TO RO, WEBGIS
+                        ro_sdeadm_db = db.replace("RW", "RO")
+
+                        ro_sdeadm_feature = os.path.join(ro_sdeadm_db, new_feature.feature_name)
+
+                        for ro_feature, ro_db in (ro_sdeadm_feature, ro_sdeadm_db),:
+
+                            # Don't need to add to WEB if feature is a table
+                            if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
+                                print(f"\nFeature is a table - skipping adding to WEB RO...")
+                                continue
+
+                            if not arcpy.Exists(ro_feature):
+                                print(f"\tCopying RW feature to {ro_db}...")
+
+                                # Need to use table to table if a table...
+                                if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
+                                    feature = arcpy.TableToTable_conversion(
+                                        in_rows=new_feature.feature,
+                                        out_path=ro_db,
+                                        out_name=new_feature.feature_name
+                                    )[0]
+
+                                else:
+                                    feature = arcpy.FeatureClassToFeatureClass_conversion(
+                                        in_features=new_feature.feature,
+                                        out_path=ro_db,
+                                        out_name=new_feature.feature_name,
+                                    )[0]
+
+                        if READY_TO_ADD_TO_REPLICA:
+                            replicas.add_to_replica(
+                                replica_name=REPLICA_NAME,
+                                rw_sde=db,
+                                ro_sde=ro_sdeadm_db,
+                                add_features=[new_feature.feature],
+                                topology_dataset=TOPOLOGY_DATASET
+                            )
+
+                        # Un-version RO feature, disable editor tracking, index
+                        for feature in ro_sdeadm_feature,:
+
+                            if arcpy.Exists(
+                                    feature):  # ro_webgis_feature may not have ever gotten created if it was a table.
+
+                                print(f"\tRegistering as UN-versioned for '{feature}'...")
+                                arcpy.UnregisterAsVersioned_management(in_dataset=feature)
+
+                                if ADD_EDITOR_TRACKING:
+                                    print(f"\tDisabling Editor Tracking for '{feature}'...")
+                                    arcpy.DisableEditorTracking_management(in_dataset=feature)
+
+                                # Set privileges
+                                ro_users = ["PUBLIC", "SDE"]
+
+                                for user in ro_users:
+                                    arcpy.ChangePrivileges_management(
+                                        in_dataset=feature,
+                                        user="PUBLIC",
+                                        View="GRANT"
+                                    )
+                                    arcpy.ChangePrivileges_management(
+                                        in_dataset=feature,
+                                        user=user,
+                                        View="GRANT"
+                                    )
+
+                                if feature_name in unique_id_fields:
+                                    id_field_info = unique_id_fields[feature_name]
+
+                                    for field_info in id_field_info:
+                                        id_field = field_info.get("field")
+
+                                        print(f"\nAdding attribute index on {id_field}...")
+                                        try:
+                                            arcpy.AddIndex_management(
+                                                in_table=feature,
+                                                fields=id_field,
+                                                index_name=f"index_{id_field}",
+                                                ascending="ASCENDING"
+                                            )
+
+                                        except arcpy.ExecuteError:
+                                            arcpy_msg = arcpy.GetMessages(2)
+                                            print(arcpy_msg)
+
+                    if ADD_EDITOR_TRACKING:
+                        # ENABLE EDITOR TRACKING
+                        new_feature.enable_editor_tracking()
+
+                    # Attribute Rules - Add after feature has been copied to Read-Only. RW and .gdb only
+                    if feature_name in unique_id_fields:
+                        id_field_info = unique_id_fields[feature_name]
+
+                        for field_info in id_field_info:
+                            id_field = field_info.get("field")
+                            prefix = field_info.get("prefix")
+
+                            print(f"Creating Sequence and Attribute Rule for {id_field} with prefix {prefix}...")
+
+                            attribute_rules.add_sequence_rule(
+                                workspace=db,
+                                feature_name=new_feature.feature,
+                                field_name=id_field,
+                                sequence_prefix=prefix,
+                            )
+
+                            print(f"\nAdding attribute index on {id_field}...")
+                            try:
+                                arcpy.AddIndex_management(
+                                    in_table=new_feature.feature,
+                                    fields=id_field,
+                                    index_name=f"index_{id_field}",
+                                    ascending="ASCENDING"
+                                )
+
+                            except arcpy.ExecuteError:
+                                arcpy_msg = arcpy.GetMessages(2)
+                                print(arcpy_msg)
+
+    # Checks:
+    # Replicas
+    # Indexes
+    # Attribute Rules
+    # Default values
+    # Domains
+    # Privileges assigned
+    # Versioned
+    # Editor Tracking
+    # Features in RO, WEB_RO
+
+    # Add to CMDB
