@@ -1,10 +1,10 @@
 import os
 import arcpy
+import ast
 
 from gispy import (
     connections,
-    attribute_rules,
-    utils,
+    attribute_rules
 )
 
 from gispy.replicas import replicas
@@ -25,56 +25,42 @@ MAX_TABLE_NAME_LENGTH = 27
 config = ConfigParser()
 config.read('config.ini')
 
-SDE = config.get("SERVER", "prod_rw")
+feature_config = ConfigParser()
+feature_config.read('feature_config.ini')
+
+SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
+SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
+
+ADD_EDITOR_TRACKING = feature_config.getboolean("FEATURE_SETTINGS", "add_editor_tracking")
+EDIT_PERMISSIONS_USERS = ast.literal_eval(feature_config.get("FEATURE_SETTINGS", "EDIT_PERMISSIONS_USERS"))
+
+READY_TO_ADD_TO_REPLICA = feature_config.getboolean("FEATURE_SETTINGS", "ready_to_add_to_replica")
+REPLICA_NAME = feature_config.get("FEATURE_SETTINGS", "replica_name")
+
+SUBTYPES = feature_config.getboolean("FEATURE_SETTINGS", "subtypes")
+SUBTYPE_FIELD = feature_config.get("FEATURE_SETTINGS", "subtype_field", fallback="")
+SUBTYPE_DOMAINS = eval(feature_config.get("FEATURE_SETTINGS", "subtype_domains"))  # if needed
+
+TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
+
+UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", "TRN_park_and_ride"))
+NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
+VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
+
+for domain, field_type in NEW_DOMAIN_TYPES.items():
+
+    if field_type.upper() not in VALID_FIELD_TYPES:
+        raise ValueError(f"Error: Field type '{field_type}' for domain '{domain}' is not standard.")
+
+PROD_SDE = config.get("SERVER", "prod_rw")
 
 if "GIS" in os.environ.get("COMPUTERNAME").upper():
-    SDE = config.get("SERVER", "prod_rw")
+    PROD_SDE = config.get("SERVER", "prod_rw")
 
-SPATIAL_REFERENCE = os.path.join(SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
+SPATIAL_REFERENCE = os.path.join(PROD_SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
 
-EDIT_PERMISSIONS_USERS = [
-    # "HRM\\GIS_TRAFFIC_EDITOR",
-]
-
-SDSF_IGNORE_FIELDS = [
-    "OBJECTID", "GLOBALID",
-    "SHAPE", "SHAPE_AREA", "SHAPE_LENGTH"
-]
 
 if __name__ == "__main__":
-
-    # TODO: Update me
-    sdsf = r"T:\work\giss\monthly\202502feb\gallaga\TRN_traffic_conflicts\Request for Change - Traffic Conflicts.xlsx"
-    sheet_name = "DATASET DETAILS"
-
-    # TODO: Update me
-    ADD_EDITOR_TRACKING = True
-
-    # TODO: Update me
-    unique_id_fields = {
-        'TRN_traffic_conflicts': [
-            {
-                "field": "TRCFID",
-                "prefix": "TRCF"
-            },
-        ]
-    }
-
-    # TODO: Update me
-    new_domain_types = {
-        # "AST_EV_op_hour": "SHORT",
-        # "AST_EV_output": "LONG"
-    }
-
-    # TODO: Update me
-    READY_TO_ADD_TO_REPLICA = False
-    REPLICA_NAME = 'TRN_Rosde'
-
-    SUBTYPES = False
-    TOPOLOGY_DATASET = False
-
-    SUBTYPE_FIELD = ""
-    SUBTYPE_DOMAINS = {}
 
     if ADD_EDITOR_TRACKING:
         SDSF_IGNORE_FIELDS.extend(["ADDBY", "ADDDATE", "MODBY", "MODDATE"])
@@ -82,16 +68,15 @@ if __name__ == "__main__":
     CURRENT_DIR = os.getcwd()
 
     for dbs in [
-        [
-            config.get("SERVER", "dev_rw"),
-        ],
         # [
-        #     config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
+        #     config.get("SERVER", "dev_rw"),
         # ],
+        [
+            config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
+        ],
         # [
         #     config.get("SERVER", "prod_rw"),
         # ],
-
     ]:
 
         for count, db in enumerate(dbs, start=1):
@@ -101,7 +86,7 @@ if __name__ == "__main__":
             db_type, db_rights = connections.connection_type(db)
 
             for xl_file in [
-                sdsf,
+                SDSF,
             ]:
                 print(f"\nCreating feature from {xl_file}...")
                 fields_report = FieldsReport(xl_file)
@@ -135,12 +120,12 @@ if __name__ == "__main__":
                     new_domains = transfer_domains(
                         domains=domain_names,
                         output_workspace=db,
-                        from_workspace=SDE
+                        from_workspace=PROD_SDE
                     ).get("unfound_domains")
 
                 else:
                     # Check for new domains not found in sde
-                    domains_in_sde, new_domains = domains_in_db(db, domain_names)
+                    domains_in_sde, new_domains, db_domains = domains_in_db(db, domain_names)
 
                 # Create any new domains
                 if new_domains:
@@ -152,8 +137,8 @@ if __name__ == "__main__":
                         try:
                             field_type = "TEXT"
 
-                            if domain in new_domain_types:
-                                field_type = new_domain_types.get(domain)
+                            if domain in NEW_DOMAIN_TYPES:
+                                field_type = NEW_DOMAIN_TYPES.get(domain)
 
                             # Check if domain is a subtype domain
                             if SUBTYPE_DOMAINS:
@@ -357,8 +342,8 @@ if __name__ == "__main__":
                                         View="GRANT"
                                     )
 
-                                if feature_name in unique_id_fields:
-                                    id_field_info = unique_id_fields[feature_name]
+                                if feature_name in UNIQUE_ID_FIELDS:
+                                    id_field_info = UNIQUE_ID_FIELDS[feature_name]
 
                                     for field_info in id_field_info:
                                         id_field = field_info.get("field")
@@ -381,8 +366,8 @@ if __name__ == "__main__":
                         new_feature.enable_editor_tracking()
 
                     # Attribute Rules - Add after feature has been copied to Read-Only. RW and .gdb only
-                    if feature_name in unique_id_fields:
-                        id_field_info = unique_id_fields[feature_name]
+                    if feature_name in UNIQUE_ID_FIELDS:
+                        id_field_info = UNIQUE_ID_FIELDS[feature_name]
 
                         for field_info in id_field_info:
                             id_field = field_info.get("field")
