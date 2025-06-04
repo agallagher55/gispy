@@ -130,7 +130,7 @@ class FieldsReport(Report):
             elif self.feature_shape.upper() == "NOT APPLICABLE":
                 FieldsReport.last_field_name = "GLOBALID"
 
-        df_field_details = self.df.loc["Published Name":FieldsReport.last_field_name]
+        df_field_details = self.df.loc["Field Name":FieldsReport.last_field_name]
 
         df_field_details.reset_index(inplace=True)
 
