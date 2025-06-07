@@ -551,7 +551,7 @@ if __name__ == "__main__":
 
     new_pid_report = sql_cmds.pid_report(
         pids=new_pids,
-        out_file=r"T:\work\giss\tools\Parcel Load\Parcel Load sqlsewparcels1.lst"
+        out_file=r"T:\work\giss\tools\Parcel Load\newparcels1.lst"
     )
     os.startfile(r"T:\work\giss\tools\Parcel Load\Parcel Load sqls")
 
@@ -648,7 +648,7 @@ Alex Gallagher
     input("Run Analyze Compress Analyze on Server DC1-GIS-APP-P23.Current runs Saturdays @ 9am (until 10:30am)")
 
     # Update GOV_OWN_VW
-    input("Update GOV-Owned parcel layer - GOV_OWN_VW - Prov_Fed_Parcels"
+    input("Update GOV-Owned parcel layer - GOV_OWN_VW - Prov_Fed_Parcels: "
           "E:\HRM\Scripts\Python\Modules\gispy\parcelload\Prov_Fed_Parcels\main.py")
 
     # TODO: Turn this into an imported function
