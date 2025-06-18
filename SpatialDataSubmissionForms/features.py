@@ -255,8 +255,8 @@ class Feature:
         )
 
     @arcpy_messages
-    def add_gloablids(self):
-        print(f"\nAdding GloablIDs to '{self.feature}'...")
+    def add_globalids(self):
+        print(f"\nAdding GlobalIDs to '{self.feature}'...")
 
         if "GlobalID" in self.fields:
             print(f"{self.feature} already has a GlobalID field.")
@@ -304,4 +304,11 @@ class Table(Feature):
         self.geometry_type = None
         self.spatial_reference = None
 
-        super(Table, self).__init__(workspace, feature_name, self.geometry_type, self.spatial_reference, alias)
+        super(Table, self).__init__(
+            workspace=workspace,
+            feature_name=feature_name,
+            geometry_type=self.geometry_type,
+            feature_dataset=None,
+            spatial_reference=self.spatial_reference,
+            alias=alias,
+        )
