@@ -235,7 +235,7 @@ if __name__ == "__main__":
                             )
 
                     # ADD GLOBAL IDS
-                    new_feature.add_gloablids()
+                    new_feature.add_globalids()
 
                     # ADD EDITOR TRACKING FIELDS
                     new_feature.add_editor_tracking_fields()
