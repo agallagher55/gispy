@@ -51,7 +51,7 @@ class SDSFMetaData:
     def __init__(self, excel_path, sheet_name="SDSF"):
         self.source = excel_path
 
-        self.df = pd.read_excel(source, sheet_name=sheet_name)
+        self.df = pd.read_excel(self.source, sheet_name=sheet_name)
 
         self.name = self.get_name()
 
@@ -130,7 +130,7 @@ class FieldsReport(Report):
             elif self.feature_shape.upper() == "NOT APPLICABLE":
                 FieldsReport.last_field_name = "GLOBALID"
 
-        df_field_details = self.df.loc["Field Name":FieldsReport.last_field_name]
+        df_field_details = self.df.loc["Alias":FieldsReport.last_field_name]
 
         df_field_details.reset_index(inplace=True)
 
@@ -153,6 +153,9 @@ class FieldsReport(Report):
 
 
 class DomainsReport(Report):
+    
+    domains_section_header = "Fields with associated codes(values) and descriptions"
+    
     def __init__(self, excel_path, subtype_field=(), sheet_name="DATASET DETAILS"):
         super().__init__(excel_path, sheet_name)
 
@@ -170,7 +173,7 @@ class DomainsReport(Report):
         domain_dataframes = dict()
 
         # Get domain info from main spreadsheet - Starts at first row after "Common Attribute Values for Fields"
-        self.domain_df = self.df.loc["Common Attribute Values for Fields":].iloc[1:]
+        self.domain_df = self.df.loc[DomainsReport.domains_section_header:].iloc[1:]
 
         # Check index for a mis-named SourceAccuracy field
         df_index = self.domain_df.index.tolist()
@@ -188,14 +191,17 @@ class DomainsReport(Report):
         for count, index_value in enumerate(self.domain_df.index):
 
             if str(index_value).upper() == "CODE":
-                domain_name = self.domain_df.index[count - 1]
+                
+                prev_row = count - 1
+                domain_field_name = df_index[prev_row]
+                domain_name = self.domain_df.iloc[prev_row, 0]
 
-                row_index_start = self.domain_df.index.tolist().index(domain_name)  # Domain name will precede row index with value of Code
+                row_index_start = self.domain_df.index.tolist().index(domain_field_name)  # Domain name will precede row index with value of Code
 
-                index_data[domain_name] = {"start_index": row_index_start}
+                index_data[domain_name] = {"start_index": row_index_start, "domain_field_name": domain_field_name}
 
         domain_names = list(index_data.keys())
-        
+
         if domain_names:
             last_domain = domain_names[-1]
     
@@ -214,23 +220,31 @@ class DomainsReport(Report):
     
             for count, current_domain_name in enumerate(domain_names):
                 next_domain = None
-    
+                
                 if current_domain_name != last_domain:
                     next_domain = domain_names[count + 1]
-    
+                
+                domain_field = index_data[current_domain_name]['domain_field_name']
+                
                 if next_domain:
-                    domain_df = self.domain_df.loc[current_domain_name: next_domain]
-    
+                    next_domain_field = index_data[next_domain]['domain_field_name']
+
+                    domain_df = self.domain_df.loc[domain_field: next_domain_field]
+
                 else:
-                    domain_df = self.domain_df.loc[current_domain_name:]
-    
+                    domain_df = self.domain_df.loc[domain_field:]
+
                 domain_df.reset_index(inplace=True)  # Adds current index as first column
                 domain_df.columns = domain_df.iloc[1]  # Set first column as df header
     
-                domain_name = domain_df.iloc[0, 0]
-                domain_field = domain_df.iloc[0, 1]
+                domain_field = domain_df.iloc[0, 0]
+                domain_name = domain_df.iloc[0, 1]
                 subtype_code = domain_df.iloc[0, 2]
-                domain_subtype = {"subtype_code": subtype_code, "domain_field": domain_field, "subtype_field": self.subtype_field}  # TODO: include subtype field
+                domain_subtype = {
+                    "subtype_code": subtype_code,
+                    "domain_field": domain_field,
+                    "subtype_field": self.subtype_field
+                }
                 subtype_data[domain_name] = domain_subtype
     
                 if next_domain:
