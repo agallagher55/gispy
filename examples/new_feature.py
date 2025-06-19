@@ -101,18 +101,13 @@ if __name__ == "__main__":
 
                 domains_report = DomainsReport(xl_file)
 
-                domain_data, domain_dataframes = domains_report.domain_info()
-                domain_names = list(domain_data.keys())
+                domain_names = domains_report.domain_names
+                domain_dataframes = domains_report.domain_data
 
                 if SUBTYPES:
                     subtype_info = fields_report.subtype_info()
                     subtype_field = subtype_info.get("subtype_field")
-                    subtype_field = \
-                        [value.get("subtype_field") for key, value in domain_data.items() if
-                         value.get("subtype_field")][0]
                     subtype_domains_field = subtype_info.get("subtype_domains_field")
-                    subtype_data = {key: value for key, value in domain_data.items() if
-                                    domain_data[key].get("subtype_code")}
 
                 if db_type == "GDB":
 

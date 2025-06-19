@@ -163,11 +163,18 @@ class DomainsReport(Report):
 
         self.domain_df = pd.DataFrame()
 
-        self.domain_names, self.domain_data = list(), dict()
+        # Populate domain information on initialization so attributes
+        # are immediately available for consuming modules such as
+        # SpatialDataSubmissionForms.main
+        self.domain_names, self.domain_data = self.domain_info()
 
     def domain_info(self):
-        """
-        :return: {domain_name, dataframe, subtype_code}
+        """Parse domain information from the SDSF worksheet.
+
+        Returns a tuple of ``(domain_names, domain_data)`` where
+        ``domain_names`` is a list of domain names found in the sheet and
+        ``domain_data`` is a dictionary mapping those domain names to
+        :class:`pandas.DataFrame` objects of coded values.
         """
 
         domain_dataframes = dict()
@@ -185,8 +192,6 @@ class DomainsReport(Report):
 
         # Create json structure for domains
         index_data = dict()
-        subtype_data = dict()
-
         # Iterate through index to domains
         for count, index_value in enumerate(self.domain_df.index):
 
@@ -239,13 +244,6 @@ class DomainsReport(Report):
     
                 domain_field = domain_df.iloc[0, 0]
                 domain_name = domain_df.iloc[0, 1]
-                subtype_code = domain_df.iloc[0, 2]
-                domain_subtype = {
-                    "subtype_code": subtype_code,
-                    "domain_field": domain_field,
-                    "subtype_field": self.subtype_field
-                }
-                subtype_data[domain_name] = domain_subtype
     
                 if next_domain:
                     # domain name, domain field, subtype code
@@ -262,4 +260,4 @@ class DomainsReport(Report):
                 if not num_df_rows == 0:
                     domain_dataframes[current_domain_name] = domain_df
 
-        return subtype_data, domain_dataframes
+        return domain_names, domain_dataframes
