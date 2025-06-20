@@ -1,90 +1,82 @@
-# Converted from Full_Automation_Script_No_Prefix.ipynb
-
-import arcpy
 import os
-import argparse
+import arcpy
+import logging
+import datetime
 
-# Local variables and constants
-DEFAULT_WORKSPACE = r"C:\GISData\Project.gdb"
-DEFAULT_OUTPUT_DIR = r"C:\GISOutputs"
-DEFAULT_LOG_FILE = r"C:\Logs\automation.log"
+import attr_rules
 
+from configparser import ConfigParser
 
-def initialize_logging(log_path):
-    """
-    Sets up logging to write messages to both console and a log file.
-    """
-    import logging
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    # File handler
-    fh = logging.FileHandler(log_path)
-    fh.setLevel(logging.DEBUG)
-    # Console handler
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    # Formatter
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.addHandler(ch)
+from hrmutils.HRMutils import setupLog
 
+arcpy.env.overwriteOutput = True
+arcpy.SetLogHistory(False)
 
-def list_feature_classes(workspace):
-    """
-    Returns a list of feature classes in the given workspace.
-    """
-    arcpy.env.workspace = workspace
-    return arcpy.ListFeatureClasses()
+config = ConfigParser()
+config.read('config.ini')
 
+logFile = os.path.join(os.getcwd(), f"{datetime.date.today()}_loggies.log")
+logger = setupLog(logFile)
 
-def export_features_to_shapefile(feature_class, output_dir):
-    """Export the feature class to a shapefile and return its path."""
-    shp_name = os.path.basename(feature_class) + ".shp"
-    out_path = os.path.join(output_dir, shp_name)
-    arcpy.FeatureClassToShapefile_conversion(feature_class, output_dir)
-    print(f"Exported {feature_class} to {out_path}")
-    return out_path
-
-
-def apply_field_calculator(
-    feature_class,
-    field_name,
-    expression,
-    expression_type="PYTHON3",
-):
-    """Apply a field calculation on the given feature class."""
-    arcpy.CalculateField_management(
-        feature_class,
-        field_name,
-        expression,
-        expression_type,
-    )
-
-
-def main(workspace, output_dir, log_file):
-    """Run the export and field calculation workflow."""
-    initialize_logging(log_file)
-
-    try:
-        fcs = list_feature_classes(workspace)
-        for fc in fcs:
-            export_features_to_shapefile(fc, output_dir)
-
-        # Example field calculation
-        sample_fc = fcs[0] if fcs else None
-        if sample_fc:
-            apply_field_calculator(
-                sample_fc,
-                "NewField",
-                "!ExistingField! * 2",
-            )
-
-    except Exception as e:
-        import logging
-        logging.error(f"An error occurred: {e}")
-
+console_handler = logging.StreamHandler()
+log_formatter = logging.Formatter(
+    '%(asctime)s | %(levelname)s | FUNCTION: %(funcName)s | Msgs: %(message)s', datefmt='%d-%b-%y %H:%M:%S'
+)
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)  # print logs to console
+logger.setLevel(logging.DEBUG)
 
 if __name__ == "__main__":
-    main(workspace, output_dir, log_file)
+
+    separator = 79 * "="
+
+    for dbs in [
+        # [utils.create_fgdb(out_folder_path=CURRENT_DIR, out_name="scratch.gdb")],
+        [
+            config.get("SERVER", "dev_ro"),
+        ],
+        # [
+        #     config.get("SERVER", "qa_ro"),
+        # ],
+        # [
+        #     config.get("SERVER", "prod_ro"),
+        # ],
+
+    ]:
+
+        for count, db in enumerate(dbs, start=1):
+
+            logger.info(f"{count}/{len(dbs)}) Database: {db}")
+
+            with arcpy.EnvManager(workspace=db):
+
+                features_with_rules = list()
+                features = arcpy.ListFeatureClasses()
+                tables = arcpy.ListTables()
+                datasets = arcpy.ListDatasets()
+
+                for dataset in datasets:
+                    dataset_features = arcpy.ListFeatureClasses(feature_dataset=dataset)
+                    features.extend(dataset_features)
+
+                all_features = features + tables
+
+                num_features = len(all_features)
+
+                for count, feature in enumerate(all_features, start=1):
+                    print(separator)
+                    print(f"\n{count}/{num_features}) {feature}")
+                    print(f"\tGetting rules...")
+
+                    rules = attr_rules.get_rules(feature)
+
+                    if rules:
+                        print("\t\tRules found!!")
+                        print(rules)
+                        features_with_rules.append(feature)
+
+                if features_with_rules:
+                    print("\nFeatures with rules:")
+
+                for feature in features_with_rules:
+                    print(f"{feature}")
