@@ -10,27 +10,6 @@ DEFAULT_OUTPUT_DIR = r"C:\GISOutputs"
 DEFAULT_LOG_FILE = r"C:\Logs\automation.log"
 
 
-def parse_args():
-    """Parse command line arguments for workspace and output paths."""
-    parser = argparse.ArgumentParser(description="Run reporting utilities.")
-    parser.add_argument(
-        "--workspace",
-        default=DEFAULT_WORKSPACE,
-        help="Geodatabase containing feature classes",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=DEFAULT_OUTPUT_DIR,
-        help="Directory where shapefiles will be created",
-    )
-    parser.add_argument(
-        "--log-file",
-        default=DEFAULT_LOG_FILE,
-        help="Path to log file",
-    )
-    return parser.parse_args()
-
-
 def initialize_logging(log_path):
     """
     Sets up logging to write messages to both console and a log file.
@@ -108,5 +87,4 @@ def main(workspace, output_dir, log_file):
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args.workspace, args.output_dir, args.log_file)
+    main(workspace, output_dir, log_file)
