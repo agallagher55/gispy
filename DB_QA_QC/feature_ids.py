@@ -27,8 +27,7 @@ logger.addHandler(console_handler)  # print logs to console
 logger.setLevel(logging.DEBUG)
 
 
-def query_all_features(workspace: str, wildcard: str = "*", include_datasets = True):
-
+def query_all_features(workspace: str, wildcard: str = "*", include_datasets=True):
     print(f"\nQuerying all {wildcard} features in '{workspace}'...")
 
     with arcpy.EnvManager(workspace=workspace):
@@ -41,7 +40,6 @@ def query_all_features(workspace: str, wildcard: str = "*", include_datasets = T
             datasets = arcpy.ListDatasets(wild_card=wildcard)
 
             for dataset in datasets:
-
                 dataset_features = arcpy.ListFeatureClasses(
                     feature_dataset=dataset,
                     wild_card=wildcard
@@ -75,7 +73,6 @@ def gather_assetids(workspace: str, features: list) -> dict:
                     break
 
             if assetid_field:
-
                 ids = {
                     row[0] for row in arcpy.da.SearchCursor(feature, [assetid_field])
                 }
@@ -132,13 +129,13 @@ def compare_assetids(info_a: dict, info_b: dict, label_a: str, label_b: str) -> 
         diff_b = ids_b - ids_a
 
         logger.info(f"{name}: mismatching ASSETID values")
-        
+
         if diff_a:
             logger.info(
                 f"Present only in {label_a}: {sorted(diff_a)[:10]}"
                 f"{'...' if len(diff_a) > 10 else ''}"
             )
-            
+
         if diff_b:
             logger.info(
                 f"Present only in {label_b}: {sorted(diff_b)[:10]}"
@@ -164,19 +161,22 @@ def sync_ro_feature(rw_feature: str, ro_feature: str) -> None:
     logger.info(f"Syncing RO feature '{ro_feature}' from '{rw_feature}'")
 
     try:
+
         with arcpy.EnvManager(preserveGlobalIds=True):
-            logger.debug(f"Truncating {ro_feature}")
-            arcpy.DeleteRows_management(ro_feature)
+
+            logger.debug(f"Truncating {ro_feature}...")
+            arcpy.TruncateTable_management(ro_feature)
             logger.debug(arcpy.GetMessages())
 
-            logger.debug(f"Appending {rw_feature} -> {ro_feature}")
+            logger.debug(f"Appending {rw_feature} --> {ro_feature}...")
             arcpy.Append_management(rw_feature, ro_feature, "NO_TEST")
             logger.debug(arcpy.GetMessages())
+
     except arcpy.ExecuteError:
         logger.error(arcpy.GetMessages(2))
+
     except Exception as ex:
         logger.error(str(ex))
-
 
 
 if __name__ == "__main__":
@@ -188,8 +188,8 @@ if __name__ == "__main__":
     rw_db = config.get("SERVER", "dev_rw")
     ro_db = config.get("SERVER", "dev_ro")
 
-    rw_features = query_all_features(rw_db, wildcard="*SDEADM.*")
-    ro_features = query_all_features(ro_db, wildcard="*SDEADM.*")
+    rw_features = query_all_features(rw_db, wildcard="*SDEADM.AST*")
+    ro_features = query_all_features(ro_db, wildcard="*SDEADM.AST*")
 
     rw_info = gather_assetids(rw_db, rw_features)
     ro_info = gather_assetids(ro_db, ro_features)
@@ -197,9 +197,10 @@ if __name__ == "__main__":
     mismatching = compare_assetids(rw_info, ro_info, "RW", "RO")
 
     for name, diff in mismatching.items():
+
         rw_feature = rw_info[name]["feature"]
         ro_feature = ro_info[name]["feature"]
-        sync_ro_feature(rw_feature, ro_feature)
+        sync_ro_feature(os.path.join(rw_db, rw_feature), os.path.join(ro_db, ro_feature))
 
     if check_rules:
 
