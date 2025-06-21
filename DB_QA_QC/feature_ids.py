@@ -52,6 +52,68 @@ def query_all_feature(workspace: str, wildcard: str = "*", include_datasets = Tr
     return features + tables
 
 
+def gather_assetids(workspace: str, features: list) -> dict:
+    """Return mapping of feature name to asset id values and field name."""
+
+    assetid_info = dict()
+
+    with arcpy.EnvManager(workspace=workspace):
+
+        for feature in features:
+            fields = arcpy.ListFields(feature)
+            assetid_field = None
+
+            for field in fields:
+                if field.name.upper() in ("ASSETID", "ASSET_ID"):
+                    assetid_field = field.name
+                    break
+
+            if assetid_field:
+                ids = {
+                    row[0]
+                    for row in arcpy.da.SearchCursor(feature, [assetid_field])
+                    if row[0] is not None
+                }
+
+                assetid_info[feature.split(".")[-1].lower()] = {
+                    "feature": feature,
+                    "field": assetid_field,
+                    "ids": ids,
+                }
+
+    return assetid_info
+
+
+def compare_assetids(info_a: dict, info_b: dict, label_a: str, label_b: str):
+    """Print differences in ASSETID values between two mappings."""
+
+    common = set(info_a) & set(info_b)
+
+    for name in sorted(common):
+        ids_a = info_a[name]["ids"]
+        ids_b = info_b[name]["ids"]
+
+        if ids_a == ids_b:
+            logger.info(f"{name}: ASSETID values match")
+            continue
+
+        diff_a = ids_a - ids_b
+        diff_b = ids_b - ids_a
+
+        logger.info(f"{name}: mismatching ASSETID values")
+        if diff_a:
+            logger.info(
+                f"\tPresent only in {label_a}: {sorted(diff_a)[:10]}"
+                f"{'...' if len(diff_a) > 10 else ''}"
+            )
+        if diff_b:
+            logger.info(
+                f"\tPresent only in {label_b}: {sorted(diff_b)[:10]}"
+                f"{'...' if len(diff_b) > 10 else ''}"
+            )
+
+
+
 if __name__ == "__main__":
 
     separator = 79 * "="
@@ -64,53 +126,31 @@ if __name__ == "__main__":
     rw_features = query_all_feature(rw_db, wildcard="*LND_*")
     ro_features = query_all_feature(ro_db, wildcard="*LND_*")
 
-    # Sort features
-    # Filter features
-    # Compare features
-    print()
+    rw_info = gather_assetids(rw_db, rw_features)
+    ro_info = gather_assetids(ro_db, ro_features)
 
-    for dbs in [
-        [
-            config.get("SERVER", "dev_ro"),
-        ],
-        # [
-        #     config.get("SERVER", "qa_ro"),
-        # ],
-        # [
-        #     config.get("SERVER", "prod_ro"),
-        # ],
+    compare_assetids(rw_info, ro_info, "RW", "RO")
 
-    ]:
-
-        for count, db in enumerate(dbs, start=1):
-
-            logger.info(f"{count}/{len(dbs)}) Database: {db}")
+    if check_rules:
+        for db, features in [(rw_db, rw_features), (ro_db, ro_features)]:
+            features_with_rules = []
+            num_features = len(features)
 
             with arcpy.EnvManager(workspace=db):
+                for idx, feature in enumerate(features, start=1):
+                    print(separator)
+                    print(f"\n{idx}/{num_features}) {feature}")
+                    print("\tGetting rules...")
 
-                if check_rules:
+                    rules = attr_rules.get_rules(feature)
 
-                    features_with_rules = list()
+                    if rules:
+                        print("\t\tRules found!!")
+                        print(rules)
+                        features_with_rules.append(feature)
 
-                    all_features = query_all_feature(db)
-
-                    num_features = len(all_features)
-
-                    for count, feature in enumerate(all_features, start=1):
-                        print(separator)
-                        print(f"\n{count}/{num_features}) {feature}")
-                        print(f"\tGetting rules...")
-
-                        rules = attr_rules.get_rules(feature)
-
-                        if rules:
-                            print("\t\tRules found!!")
-                            print(rules)
-                            features_with_rules.append(feature)
-
-                    if features_with_rules:
-                        print("\nFeatures with rules:")
-
-                    for feature in features_with_rules:
-                        print(f"{feature}")
+            if features_with_rules:
+                print("\nFeatures with rules:")
+                for feature in features_with_rules:
+                    print(feature)
 
