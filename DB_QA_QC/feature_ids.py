@@ -54,7 +54,9 @@ def query_all_features(workspace: str, wildcard: str = "*", include_datasets = T
 
 def gather_assetids(workspace: str, features: list) -> dict:
     """Return mapping of feature name to asset id values and field name."""
-
+    
+    print("Gathering ASSETID values...")
+    
     assetid_info = dict()
 
     with arcpy.EnvManager(workspace=workspace):
@@ -69,6 +71,7 @@ def gather_assetids(workspace: str, features: list) -> dict:
                     break
 
             if assetid_field:
+                
                 ids = {
                     row[0]
                     for row in arcpy.da.SearchCursor(feature, [assetid_field])
@@ -86,7 +89,9 @@ def gather_assetids(workspace: str, features: list) -> dict:
 
 def compare_assetids(info_a: dict, info_b: dict, label_a: str, label_b: str):
     """Print differences in ASSETID values between two mappings."""
-
+    
+    print("\nComparing ASSETID values...")
+    
     common = set(info_a) & set(info_b)
 
     for name in sorted(common):
@@ -132,6 +137,7 @@ if __name__ == "__main__":
     compare_assetids(rw_info, ro_info, "RW", "RO")
 
     if check_rules:
+        
         for db, features in [(rw_db, rw_features), (ro_db, ro_features)]:
             features_with_rules = []
             num_features = len(features)
