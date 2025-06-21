@@ -123,8 +123,8 @@ if __name__ == "__main__":
     rw_db = config.get("SERVER", "dev_rw")
     ro_db = config.get("SERVER", "dev_ro")
 
-    rw_features = query_all_feature(rw_db, wildcard="*LND_*")
-    ro_features = query_all_feature(ro_db, wildcard="*LND_*")
+    rw_features = query_all_features(rw_db, wildcard="*LND_*")
+    ro_features = query_all_features(ro_db, wildcard="*LND_*")
 
     rw_info = gather_assetids(rw_db, rw_features)
     ro_info = gather_assetids(ro_db, ro_features)
@@ -153,4 +153,3 @@ if __name__ == "__main__":
                 print("\nFeatures with rules:")
                 for feature in features_with_rules:
                     print(feature)
-
