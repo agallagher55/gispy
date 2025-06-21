@@ -11,6 +11,25 @@ def feature_subtypes(feature):
     return sorted(subtypes)
 
 
+def query_all_feature(workspace: str):
+
+    all_features = list()
+    
+    with arcpy.EnvManager(workspace):
+        
+        features = arcpy.ListFeatureClasses()
+        tables = arcpy.ListTables()
+        datasets = arcpy.ListDatasets()
+
+        for dataset in datasets:
+            dataset_features = arcpy.ListFeatureClasses(feature_dataset=dataset)
+            features.extend(dataset_features)
+
+        all_features = features + tables
+        
+    return all_features
+            
+
 def with_msgs(command):
     """
     The with_msgs function is a decorator that prints out the messages from ArcPy
