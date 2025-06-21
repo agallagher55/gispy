@@ -27,7 +27,7 @@ logger.addHandler(console_handler)  # print logs to console
 logger.setLevel(logging.DEBUG)
 
 
-def query_all_feature(workspace: str, wildcard: str = "*", include_datasets = True):
+def query_all_features(workspace: str, wildcard: str = "*", include_datasets = True):
 
     print(f"\nQuerying all features in '{workspace}'...")
 
