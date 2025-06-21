@@ -29,7 +29,7 @@ logger.setLevel(logging.DEBUG)
 
 def query_all_features(workspace: str, wildcard: str = "*", include_datasets = True):
 
-    print(f"\nQuerying all features in '{workspace}'...")
+    print(f"\nQuerying all {wildcard} features in '{workspace}'...")
 
     with arcpy.EnvManager(workspace=workspace):
 
@@ -63,6 +63,8 @@ def gather_assetids(workspace: str, features: list) -> dict:
 
         for feature in features:
 
+            print(f"\t{feature}")
+
             fields = arcpy.ListFields(feature)
             assetid_field = None
 
@@ -75,7 +77,7 @@ def gather_assetids(workspace: str, features: list) -> dict:
             if assetid_field:
 
                 ids = {
-                    row[0] for row in arcpy.da.SearchCursor(feature, [assetid_field]) if row[0] is not None
+                    row[0] for row in arcpy.da.SearchCursor(feature, [assetid_field])
                 }
 
                 assetid_info[feature.split(".")[-1].lower()] = {
@@ -87,39 +89,65 @@ def gather_assetids(workspace: str, features: list) -> dict:
     return assetid_info
 
 
-def compare_assetids(info_a: dict, info_b: dict, label_a: str, label_b: str):
-    """Print differences in ASSETID values between two mappings."""
+def compare_assetids(info_a: dict, info_b: dict, label_a: str, label_b: str) -> dict:
+    """Compare ASSETID values between two mappings.
 
-    print("\nComparing ASSETID values...")
+    Parameters
+    ----------
+    info_a, info_b : dict
+        Output from :func:`gather_assetids` for each workspace.
+    label_a, label_b : str
+        Friendly labels for the two workspaces used in log messages.
+
+    Returns
+    -------
+    dict
+        Mapping of feature name to dictionaries describing any mismatching
+        ASSETID values. Only features present in both workspaces are compared
+        and returned. The dictionary is empty when all common features match.
+    """
+
+    mismatching = {}
 
     common_features = set(info_a) & set(info_b)
+    only_a = set(info_a) - set(info_b)
+    only_b = set(info_b) - set(info_a)
 
-    for feature in sorted(common_features):
+    for name in sorted(only_a):
+        logger.info(f"{name}: only present in {label_a}")
 
-        ids_a = info_a[feature]["ids"]
-        ids_b = info_b[feature]["ids"]
+    for name in sorted(only_b):
+        logger.info(f"{name}: only present in {label_b}")
+
+    for name in sorted(common_features):
+
+        ids_a = info_a[name]["ids"]
+        ids_b = info_b[name]["ids"]
 
         if ids_a == ids_b:
-
-            logger.info(f"\n{feature}: ASSETID values match")
+            logger.info(f"{name}: ASSETID values match")
             continue
 
         diff_a = ids_a - ids_b
         diff_b = ids_b - ids_a
 
-        logger.info(f"\n{feature}: mismatching ASSETID values")
-
+        logger.info(f"{name}: mismatching ASSETID values")
+        
         if diff_a:
-
             logger.info(
-                f"\tPresent only in '{label_a}': {sorted(diff_a)}"
+                f"Present only in {label_a}: {sorted(diff_a)[:10]}"
+                f"{'...' if len(diff_a) > 10 else ''}"
             )
-
+            
         if diff_b:
-
             logger.info(
-                f"\tPresent only in '{label_b}': {sorted(diff_b)}"
+                f"Present only in {label_b}: {sorted(diff_b)[:10]}"
+                f"{'...' if len(diff_b) > 10 else ''}"
             )
+
+        mismatching[name] = {label_a: diff_a, label_b: diff_b}
+
+    return mismatching
 
 
 
@@ -132,8 +160,8 @@ if __name__ == "__main__":
     rw_db = config.get("SERVER", "dev_rw")
     ro_db = config.get("SERVER", "dev_ro")
 
-    rw_features = query_all_features(rw_db, wildcard="*AST_*")
-    ro_features = query_all_features(ro_db, wildcard="*AST_*")
+    rw_features = query_all_features(rw_db, wildcard="*SDEADM.*")
+    ro_features = query_all_features(ro_db, wildcard="*SDEADM.*")
 
     rw_info = gather_assetids(rw_db, rw_features)
     ro_info = gather_assetids(ro_db, ro_features)
