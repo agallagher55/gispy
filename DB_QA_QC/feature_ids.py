@@ -150,6 +150,34 @@ def compare_assetids(info_a: dict, info_b: dict, label_a: str, label_b: str) -> 
     return mismatching
 
 
+def sync_ro_feature(rw_feature: str, ro_feature: str) -> None:
+    """Truncate the RO feature and load it from the RW feature.
+
+    Parameters
+    ----------
+    rw_feature : str
+        Full path to the source feature in the read-write database.
+    ro_feature : str
+        Full path to the target feature in the read-only database.
+    """
+
+    logger.info(f"Syncing RO feature '{ro_feature}' from '{rw_feature}'")
+
+    try:
+        with arcpy.EnvManager(preserveGlobalIds=True):
+            logger.debug(f"Truncating {ro_feature}")
+            arcpy.DeleteRows_management(ro_feature)
+            logger.debug(arcpy.GetMessages())
+
+            logger.debug(f"Appending {rw_feature} -> {ro_feature}")
+            arcpy.Append_management(rw_feature, ro_feature, "NO_TEST")
+            logger.debug(arcpy.GetMessages())
+    except arcpy.ExecuteError:
+        logger.error(arcpy.GetMessages(2))
+    except Exception as ex:
+        logger.error(str(ex))
+
+
 
 if __name__ == "__main__":
 
@@ -166,7 +194,12 @@ if __name__ == "__main__":
     rw_info = gather_assetids(rw_db, rw_features)
     ro_info = gather_assetids(ro_db, ro_features)
 
-    compare_assetids(rw_info, ro_info, "RW", "RO")
+    mismatching = compare_assetids(rw_info, ro_info, "RW", "RO")
+
+    for name, diff in mismatching.items():
+        rw_feature = rw_info[name]["feature"]
+        ro_feature = ro_info[name]["feature"]
+        sync_ro_feature(rw_feature, ro_feature)
 
     if check_rules:
 
