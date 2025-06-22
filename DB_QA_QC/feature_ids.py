@@ -185,11 +185,11 @@ if __name__ == "__main__":
 
     check_rules = False
 
-    rw_db = config.get("SERVER", "dev_rw")
-    ro_db = config.get("SERVER", "dev_ro")
+    rw_db = config.get("SERVER", "prod_rw")
+    ro_db = config.get("SERVER", "prod_ro")
 
-    rw_features = query_all_features(rw_db, wildcard="*SDEADM.AST*")
-    ro_features = query_all_features(ro_db, wildcard="*SDEADM.AST*")
+    rw_features = query_all_features(rw_db, wildcard="*SDEADM.*")
+    ro_features = query_all_features(ro_db, wildcard="*SDEADM.*")
 
     rw_info = gather_assetids(rw_db, rw_features)
     ro_info = gather_assetids(ro_db, ro_features)
@@ -204,12 +204,15 @@ if __name__ == "__main__":
 
     if check_rules:
 
-        for db, features in [(rw_db, rw_features), (ro_db, ro_features)]:
+        for db, features in [(ro_db, ro_features),]:
+            
             features_with_rules = []
             num_features = len(features)
 
             with arcpy.EnvManager(workspace=db):
+                
                 for idx, feature in enumerate(features, start=1):
+                    
                     print(separator)
                     print(f"\n{idx}/{num_features}) {feature}")
                     print("\tGetting rules...")
@@ -222,6 +225,7 @@ if __name__ == "__main__":
                         features_with_rules.append(feature)
 
             if features_with_rules:
+                
                 print("\nFeatures with rules:")
                 for feature in features_with_rules:
                     print(feature)
