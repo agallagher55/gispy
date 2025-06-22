@@ -75,6 +75,27 @@ def run_error_processing(error_message):
 
 
 def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: float) -> dict:
+    """Run QA/QC checks on a dynamic segmentation feature.
+
+    Parameters
+    ----------
+    dyn_seg_feature : str
+        Path to the feature class containing dynamic segmentation results.
+    short_segment_threshold : float
+        Minimum length (in the units of ``SHAPE@LENGTH``) that a segment must
+        exceed in order to pass the short segment check.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the generated report file names and boolean flags
+        indicating whether critical or warning errors were found.
+
+    The checks performed are:
+        - duplicate ``FDMID`` values
+        - null ``FDMID`` values
+        - segments shorter than ``short_segment_threshold``
+    """
 
     import pandas as pd
 
@@ -121,10 +142,12 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         logger.info("Duplicate FDMIDs found!")
 
         # Write output txt file
-        with open(duplicate_fdmids_report, "w") as txt_file:
-
-            for fdmid in duplicate_fdmids:
-                txt_file.write(f"{fdmid}\n")
+        try:
+            with open(duplicate_fdmids_report, "w") as txt_file:
+                for fdmid in duplicate_fdmids:
+                    txt_file.write(f"{fdmid}\n")
+        except OSError as exc:
+            logger.error(f"Failed to write duplicate FDMIDs report: {exc}")
 
     if not null_fdmid_df.empty:
         critical_errors_found = True
@@ -134,12 +157,15 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         null_fdmid_records = null_fdmid_df[['ROUTE_ID']].to_dict('records')
 
         # write route IDs to a text file
-        with open(null_fdmids_report, "w", newline='') as csv_file:
-            fieldnames = null_fdmid_records[0].keys()  # grab your column order
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        try:
+            with open(null_fdmids_report, "w", newline='') as csv_file:
+                fieldnames = null_fdmid_records[0].keys()  # grab your column order
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
-            writer.writeheader()  # write column headers
-            writer.writerows(null_fdmid_records)  # write all rows at once
+                writer.writeheader()  # write column headers
+                writer.writerows(null_fdmid_records)  # write all rows at once
+        except OSError as exc:
+            logger.error(f"Failed to write null FDMIDs report: {exc}")
 
     if short_segments:
         critical_errors_found = True
@@ -148,12 +174,15 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         logger.info(f"Segments shorter than {short_segment_threshold}m found!")
 
         # write output csv
-        with open(short_segments_report, "w", newline='') as csv_file:
-            fieldnames = short_segments[0].keys()  # grab your column order
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        try:
+            with open(short_segments_report, "w", newline='') as csv_file:
+                fieldnames = short_segments[0].keys()  # grab your column order
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
-            writer.writeheader()  # write column headers
-            writer.writerows(short_segments)  # write all rows at once
+                writer.writeheader()  # write column headers
+                writer.writerows(short_segments)  # write all rows at once
+        except OSError as exc:
+            logger.error(f"Failed to write short segments report: {exc}")
 
     return {
         "duplicate_fdmids_report": duplicate_fdmids_report,
