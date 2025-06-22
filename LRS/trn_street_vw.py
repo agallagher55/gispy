@@ -2,26 +2,37 @@ import os
 
 import arcpy
 import logging
+import csv
+import sys
+import traceback
 
 from os import environ, path
 from configparser import ConfigParser
 from datetime import datetime
 
-from hrmutils.HRMutils import setupLog
+from HRMutils import setupLog, send_mail
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
+
+working_dir = os.path.dirname(sys.path[0])
+scripts_dir = os.path.join(working_dir, "Scripts")
+scratch_dir = os.path.join(working_dir, "Scratch")
+gdb_name = "Scratch.gdb"
+
+scratch_gdb = os.path.join(scratch_dir, gdb_name)
 
 arcpy.CheckOutExtension("LocationReferencing")
 
 config = ConfigParser()
 config.read('config.ini')
 
-logFile = path.join(
+log_file = path.join(
     os.getcwd(),
     f"{datetime.today().date()}_TRN_street_vw_creation.log"
 )
-logger = setupLog(logFile)
+logger = setupLog(log_file)
+log_server = ""
 
 console_handler = logging.StreamHandler()
 log_formatter = logging.Formatter(
@@ -30,15 +41,42 @@ log_formatter = logging.Formatter(
 console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)  # logger.info logs to console
 
+LRS_DIR = r"\\msfs203.hrm.halifax.ca\GISData\Data Sharing\LRS_operational"
+LRS_GDB = os.path.join(LRS_DIR, "lrs_view.gdb")
+
 LRS_VIEW_NAME = "TRNLRS_TRN_street_VW"
 
 PRE_VIEW_FEATURE_NAME = "TRNLRS_segmented_street_events"
 
+class LicenseError(Exception):
+    pass
+
+
+def run_error_processing(error_message):
+
+    logger.info("Handling Error...")
+
+    tb = sys.exc_info()[2]
+    tbinfo = traceback.format_tb(tb)[0]
+
+    pymsg = "PYTHON ERRORS:\nTraceback Info:\n" + tbinfo + "\nError Info:\n    " + \
+            str(sys.exc_info()[0]) + ": " + str(sys.exc_info()[1]) + "\n"
+
+    logger.error(pymsg)
+    logger.info(error_message)
+
+    msgs = "GP ERRORS:\n" + arcpy.GetMessages(2) + "\n"
+    logger.error(msgs)
+
+    # send_mail(
+    #     f"ERROR - GDB Replication Had Failures - Check Log File",
+    #     log_server + " / GDB_Replication.py\n" + error_message
+    # )
+
+
 def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: float) -> dict:
 
     import pandas as pd
-
-    today = str(datetime.date.today())
 
     duplicate_fdmids_report = f"duplicate_fdmids.txt"
     null_fdmids_report = f"null_fdmids.csv"
@@ -127,7 +165,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     }
 
 
-def update_lrs_dynamic_segmentation(out_db: str, segmented_feature_name: str = "TRNLRS_segmented_street_events"):
+def update_lrs_dynamic_segmentation(out_db: str, reference_db:str, segmented_feature_name: str = "TRNLRS_segmented_street_events"):
     """
     - Update LRS view by recreating the table that the view is derived from.
 
@@ -136,13 +174,13 @@ def update_lrs_dynamic_segmentation(out_db: str, segmented_feature_name: str = "
     """
 
     event_tables = [
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_StreetDirection',
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_StreetClass',
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_AddressRange',
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_PSAB',
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_StreetOwnership',
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_StreetStatus',
-        rf'{SDEADM_RW}\SDEADM.TRNLRS\SDEADM.E_WinterMaintenance',  # NEW
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_StreetDirection',
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_StreetClass',
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_AddressRange',
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_PSAB',
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_StreetOwnership',
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_StreetStatus',
+        rf'{reference_db}\SDEADM.TRNLRS\SDEADM.E_WinterMaintenance',  # NEW
     ]
 
     network_fields = "OBJECTID;FROMDATE;TODATE;ROUTEID;ROUTENAME;STR_NAME;STR_TYPE;MUN_CODE;GLOBALID"
@@ -166,7 +204,7 @@ def update_lrs_dynamic_segmentation(out_db: str, segmented_feature_name: str = "
 
         logger.info(f"Overlaying events to create '{segmented_feature_name}'...")
         arcpy.locref.OverlayEvents(
-            in_route_features=rf"{SDEADM_RW}\GISRW01.SDEADM.TRNLRS\GISRW01.SDEADM.LRSN_Route",
+            in_route_features=rf"{reference_db}\GISRW01.SDEADM.TRNLRS\GISRW01.SDEADM.LRSN_Route",
             event_layers=event_tables,
             output_dataset=overlay_output_feature,
             include_geometry="INCLUDE_GEOMETRY",
@@ -177,7 +215,6 @@ def update_lrs_dynamic_segmentation(out_db: str, segmented_feature_name: str = "
         logger.info(f"Recreated {overlay_output_feature}")
 
         if out_db.upper().endswith(".SDE"):
-
             arcpy.ChangePrivileges_management(
                 in_dataset=overlay_output_feature,
                 user="PUBLIC",
@@ -202,40 +239,6 @@ def update_lrs_dynamic_segmentation(out_db: str, segmented_feature_name: str = "
         logger.info("Checked in LocationReferencing Extension")
 
 
-def create_lrs_view(
-        event_tables: [list, tuple], segmented_feature_name: str, view_name: str, sql_definition: str,
-        workspace: str, network_fields
-):
-    logger.info(f"Creating LRS view '{view_name}'...")
-
-    output_view_feature = path.join(workspace, view_name)
-
-    overlay_output_feature = update_lrs_view(event_tables, segmented_feature_name, network_fields, view_name)
-
-    logger.info(f"Creating database view '{view_name}'...")
-    arcpy.CreateDatabaseView_management(
-        input_database=workspace,
-        view_name=view_name,
-        view_definition=sql_definition
-    )
-
-    # Update privileges
-    for feature in (
-            overlay_output_feature,
-            output_view_feature,
-    ):
-        logger.info(f"Updating privileges on {feature}...")
-        arcpy.ChangePrivileges_management(
-            in_dataset=feature,
-            user="PUBLIC",
-            View="GRANT",
-        )
-
-    logger.warning("*MUST SET VIEW PROJECTION IN ARC CATALOG!!")
-
-    return output_view_feature
-
-
 if __name__ == "__main__":
 
     PC_NAME = environ['COMPUTERNAME']
@@ -253,6 +256,9 @@ if __name__ == "__main__":
         # [
         #     config.get("SERVER", "dev_rw"),
         # ],
+        [
+            config.get("SERVER", "prod_rw"),
+        ],
     ]:
 
         if dbs:
@@ -263,46 +269,48 @@ if __name__ == "__main__":
 
                 with arcpy.EnvManager(workspace=workspace):
 
-                     sde_dyn_seg_feature = os.path.join(SDEADM_RW, "SDEADM.TRNLRS_segmented_street_events")
-            
+                    sde_dyn_seg_feature = os.path.join(workspace, "SDEADM.TRNLRS_segmented_street_events")
+
                     # Create new dyn seg, not feeding view
                     # pre_dyn_seg_feature = update_lrs_dynamic_segmentation(out_db=LRS_GDB, segmented_feature_name=os.path.basename("TRNLRS_segmented_street_events"))
-                    pre_dyn_seg_feature = update_lrs_dynamic_segmentation(out_db=scratchGdb, segmented_feature_name=os.path.basename("TRNLRS_segmented_street_events"))
-            
+                    pre_dyn_seg_feature = update_lrs_dynamic_segmentation(
+                        out_db=scratch_gdb,
+                        reference_db=workspace,
+                        segmented_feature_name=os.path.basename("TRNLRS_segmented_street_events")
+                    )
+
                     lrs_email_recipents = ['tr33177@halifax.ca', 'me24191@halifax.ca']
                     short_segment_threshold = 3.174511  # FUNCTION VAR
                     view_checks_info = trnlrs_street_view_checks(pre_dyn_seg_feature, short_segment_threshold)
-            
+
                     if view_checks_info["critical_errors_found"] or view_checks_info["warning_errors_found"]:
-            
-                        reports = view_checks_info['duplicate_fdmids_report'], view_checks_info['null_fdmids_report'], view_checks_info['short_segments_report'],
+
+                        reports = view_checks_info['duplicate_fdmids_report'], view_checks_info['null_fdmids_report'], \
+                        view_checks_info['short_segments_report'],
                         written_reports = [x for x in reports if os.path.exists(x)]
-            
-                        send_mail(
-                            to=lrs_email_recipents,
-                            subject="TRNLRS_street_view Errors & Warnings Report (from PROD)",
-                            text="Uh oh, we have a small problem, friends - attached is some information regarding some issues feeding the TRNLRS_steet_VW, for your VIEWing pleasure."
-                                 f"\n\t(The shortest segment threshold used was '{short_segment_threshold}')"
-                                 f"\nCheck out geometry information here: '{LRS_GDB}'"
-                                 "\nBreathe, think, review, and keep up the good work."
-                                 "\n\nGodspeed.",
-                            files=written_reports,
-                            cc=['gallaga@halifax.ca'],
-                            server="mailer.halifax.ca",
-                            sender="noreply@halifax.ca"
-                        )
-            
+
+                        # send_mail(
+                        #     to=lrs_email_recipents,
+                        #     subject="TRNLRS_street_view Errors & Warnings Report (from PROD)",
+                        #     text="Uh oh, we have a small problem, friends - attached is some information regarding some issues feeding the TRNLRS_steet_VW, for your VIEWing pleasure."
+                        #          f"\n\t(The shortest segment threshold used was '{short_segment_threshold}')"
+                        #          f"\nCheck out geometry information here: '{LRS_GDB}'"
+                        #          "\nBreathe, think, review, and keep up the good work."
+                        #          "\n\nGodspeed.",
+                        #     files=written_reports,
+                        #     cc=['gallaga@halifax.ca'],
+                        # )
+
                     else:
                         # Truncate and load
                         logger.info(f"Truncating {sde_dyn_seg_feature}...")
                         arcpy.TruncateTable_management(sde_dyn_seg_feature)
-            
+
                         logger.info(f"Loading {sde_dyn_seg_feature}...")
                         arcpy.Append_management(
                             inputs=pre_dyn_seg_feature,
                             target=sde_dyn_seg_feature,
                             schema_type="NO_TEST",
                         )
-
 
     # arcpy.CheckInExtension('LocationReferencing')
