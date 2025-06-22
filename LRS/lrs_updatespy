@@ -99,6 +99,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
     import pandas as pd
 
+    null_gsa_report = f"null_gsas.csv"
     duplicate_fdmids_report = f"duplicate_fdmids.txt"
     null_fdmids_report = f"null_fdmids.csv"
     short_segments_report = f"short_segments.csv"
@@ -106,7 +107,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     critical_errors_found = False
     warning_errors_found = False
 
-    dyn_seg_fields = ["ROUTE_ID", "FDMID", "SHAPE@LENGTH"]
+    dyn_seg_fields = ["ROUTE_ID", "FDMID", "SHAPE@LENGTH", "GSA_LEFT", "GSA_RIGHT"]
 
     dyn_seg_data = [
         row for row in arcpy.da.SearchCursor(
@@ -115,10 +116,12 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         )
     ]
 
-    df = pd.DataFrame(dyn_seg_data, columns=dyn_seg_fields).sort_values(by=["SHAPE@LENGTH", "ROUTE_ID"])
+    df = pd.DataFrame(dyn_seg_data, columns=dyn_seg_fields).sort_values(by=["SHAPE@LENGTH", "ROUTE_ID", "GSA_LEFT"])
     df['FDMID'] = df['FDMID'].round().astype('Int64')
 
     # CRITICAL ERROR CHECKS
+    # Check for null GSA
+    null_gsa_df = df[(df['GSA_LEFT'].isnull()) | df['GSA_RIGHT'].isnull()]
 
     # Check for duplicate FDMIDs
     duplicate_fdmids = sorted(df[df.duplicated(subset=['FDMID'], keep=False)]['FDMID'].unique().tolist())
@@ -135,6 +138,27 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     # communities, overlapping ranges, blank street type, NSCAF, locators
     # TODO: Check for warnings
 
+    if not null_gsa_df.empty:
+
+        critical_errors_found = True
+
+        logger.info("Null GSAs found!")
+
+        null_gsa_records = null_gsa_df[['ROUTE_ID']].to_dict('records')
+
+        # Write output txt file
+        try:
+
+            with open(null_gsa_report, "w", newline='') as csv_file:
+                fieldnames = null_gsa_records[0].keys()  # grab your column order
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+                writer.writeheader()  # write column headers
+                writer.writerows(null_gsa_records)  # write all rows at once
+
+        except OSError as exc:
+            logger.error(f"Failed to write duplicate FDMIDs report: {exc}")
+
     if duplicate_fdmids:
 
         critical_errors_found = True
@@ -143,9 +167,11 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
         # Write output txt file
         try:
+
             with open(duplicate_fdmids_report, "w") as txt_file:
                 for fdmid in duplicate_fdmids:
                     txt_file.write(f"{fdmid}\n")
+
         except OSError as exc:
             logger.error(f"Failed to write duplicate FDMIDs report: {exc}")
 
@@ -164,29 +190,33 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
                 writer.writeheader()  # write column headers
                 writer.writerows(null_fdmid_records)  # write all rows at once
+
         except OSError as exc:
             logger.error(f"Failed to write null FDMIDs report: {exc}")
 
     if short_segments:
+
         critical_errors_found = True
 
-        # logger.info(f"{len([short_segments.keys()])} Segments shorter than {short_segment_threshold}m found!")
         logger.info(f"Segments shorter than {short_segment_threshold}m found!")
 
         # write output csv
         try:
+
             with open(short_segments_report, "w", newline='') as csv_file:
                 fieldnames = short_segments[0].keys()  # grab your column order
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
                 writer.writeheader()  # write column headers
                 writer.writerows(short_segments)  # write all rows at once
+
         except OSError as exc:
             logger.error(f"Failed to write short segments report: {exc}")
 
     return {
         "duplicate_fdmids_report": duplicate_fdmids_report,
         "null_fdmids_report": null_fdmids_report,
+        "null_gsa_report": null_gsa_report,
         "short_segments_report": short_segments_report,
 
         "critical_errors_found": critical_errors_found,
@@ -296,11 +326,14 @@ if __name__ == "__main__":
             for workspace in dbs:
                 logger.info(f"DATABASE: {workspace}")
 
-                with arcpy.EnvManager(workspace=workspace):
+                with (((arcpy.EnvManager(workspace=workspace)))):
 
                     sde_dyn_seg_feature = os.path.join(workspace, "SDEADM.TRNLRS_segmented_street_events")
 
                     # Create new dyn seg, not feeding view
+
+                    # TODO: Put geometry in a shared location for user reference
+
                     # pre_dyn_seg_feature = update_lrs_dynamic_segmentation(out_db=LRS_GDB, segmented_feature_name=os.path.basename("TRNLRS_segmented_street_events"))
                     pre_dyn_seg_feature = update_lrs_dynamic_segmentation(
                         out_db=scratch_gdb,
@@ -314,10 +347,13 @@ if __name__ == "__main__":
 
                     if view_checks_info["critical_errors_found"] or view_checks_info["warning_errors_found"]:
 
-                        reports = view_checks_info['duplicate_fdmids_report'], view_checks_info['null_fdmids_report'], \
-                        view_checks_info['short_segments_report'],
+                        reports = (
+                            view_checks_info['duplicate_fdmids_report'], view_checks_info['null_fdmids_report'],
+                            view_checks_info['null_gsa_report'], view_checks_info['short_segments_report']
+                        )
                         written_reports = [x for x in reports if os.path.exists(x)]
-
+                        
+                        # TODO: Skip weekends
                         # send_mail(
                         #     to=lrs_email_recipents,
                         #     subject="TRNLRS_street_view Errors & Warnings Report (from PROD)",
