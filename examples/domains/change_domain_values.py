@@ -15,11 +15,8 @@ config.read('config.ini')
 CURRENT_DIR = getcwd()
 
 ADD_CODE_VALUES = {
-    "LND_zoning_DART": {
-        "US-E": "US-E",
-    },
-    "LND_zoning_SHUB": {
-        "US-E": "US-E",
+    "LND_parcelpoly_focde": {
+        "CDPIC6": "Condominium parcel",
     },
 }
 
@@ -35,22 +32,20 @@ if __name__ == "__main__":
     print(f"\nPC Name: {PC_NAME}\n\tRunning from: {run_from}...")
 
     for dbs in [
-        # [local_gdb, ],
+        [
+            config.get("SERVER", "dev_rw"),
+            config.get("SERVER", "dev_ro"),
+        ],
         # [
-            # config.get("SERVER", "dev_rw"),
-            # config.get("SERVER", "dev_ro"),
-            # config.get("SERVER", "dev_web_ro_gdb"),  # ValueError: Did not find domain 'Bldg_fsa_code' in db. Found domains: Bldg_fsa_code
+        #     config.get("SERVER", "qa_rw"),
+        #     config.get("SERVER", "qa_ro"),
+        #     config.get("SERVER", "qa_web_ro_gdb"),
         # ],
-        [
-            config.get("SERVER", "qa_rw"),
-            config.get("SERVER", "qa_ro"),
-            config.get("SERVER", "qa_web_ro_gdb"),
-        ],
-        [
-            config.get("SERVER", "prod_rw"),
-            config.get("SERVER", "prod_ro"),
-            config.get("SERVER", "prod_web_ro_gdb"),
-        ],
+        # [
+        #     config.get("SERVER", "prod_rw"),
+        #     config.get("SERVER", "prod_ro"),
+        #     config.get("SERVER", "prod_web_ro_gdb"),
+        # ],
 
     ]:
 
