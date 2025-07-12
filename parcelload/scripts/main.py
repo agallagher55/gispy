@@ -551,7 +551,7 @@ if __name__ == "__main__":
 
     new_pid_report = sql_cmds.pid_report(
         pids=new_pids,
-        out_file=r"T:\work\giss\tools\Parcel Load\newparcels1.lst"
+        out_file=r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\newparcels1.lst"
     )
     os.startfile(r"T:\work\giss\tools\Parcel Load\Parcel Load sqls")
 
