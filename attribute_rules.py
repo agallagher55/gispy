@@ -11,7 +11,7 @@ def get_rules(feature) -> list:
     if rules:
         print(f"\tFound Rules: {', '.join([x.name for x in rules])}")
 
-        return rules
+    return rules
 
 
 def check_for_rules(feature, rules: list):
@@ -74,9 +74,10 @@ def toggle_rule(rule_names: list, rule_type: str, feature, enable_disable: str):
         )
 
 
-def add_sequence_rule(workspace, feature_name, field_name, sequence_prefix="", padded_sequence=False, start_value=1, sequence_name=''):
+def add_sequence_rule(workspace, feature_name, field_name, sequence_prefix="", padded_sequence=False, start_value=1,
+                      sequence_name=''):
     print(f"\nAdding Sequence Attribute Rule to {feature_name}...")
-    
+
     # Get all workspace sequences
     sde_sequences_sql = """
       SELECT SEQUENCE_NAME
@@ -103,19 +104,28 @@ def add_sequence_rule(workspace, feature_name, field_name, sequence_prefix="", p
         );
 
         return sequence_prefix + add_zeros + sequence_num 
-"""  
-    
-    # for SDE features
+"""
+
+        # for SDE features
 
     if field_name in ("ASSETID", "ASSET_ID"):
         sequence_name = (
-                    os.path.basename(feature_name).replace("_", "").replace(feature_prefix, "") + field_name
+                os.path.basename(feature_name).replace("_", "").replace(feature_prefix, "") + field_name
         ).upper()
         # raise ValueError(f"Sequence for {field_name} needs a different sequence name.")
 
     rule_description = f"{os.path.basename(feature_name)} - {field_name} - Generate ID"
-    expression = f"'{sequence_prefix}' + NextSequenceValue('sdeadm.{sequence_name}')"  # for SDE features
+    expression = f"'{sequence_prefix}' + NextSequenceValue('sdeadm.{sequence_name}')"
     
+    if not sequence_prefix:
+        expression = f"NextSequenceValue('sdeadm.{sequence_name}')"
+        
+    if ".gdb" in workspace:
+        expression = f"'{sequence_prefix}' + NextSequenceValue('{sequence_name}')"
+
+        if not sequence_prefix:
+            expression = f"NextSequenceValue('{sequence_name}')"
+
     in_feature = os.path.join(workspace, feature_name)
 
     # Make sure Attribute Rule does not already exist.
@@ -127,9 +137,6 @@ def add_sequence_rule(workspace, feature_name, field_name, sequence_prefix="", p
     if rule_exists:
         print(f"Rule '{rule_description}' already exists!")
         return True
-
-    if ".gdb" in workspace:
-        expression = f"'{sequence_prefix}' + NextSequenceValue('{sequence_name}')"
 
     try:
         arcpy.DeleteDatabaseSequence_management(
