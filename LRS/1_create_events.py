@@ -5,60 +5,12 @@ import arcpy
 
 import pandas as pd
 
+from events import LrsEventForm
+
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
 SDE_SPATIAL_REFERENCE = r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm_branch.sde"
-
-
-class LrsEventForm:
-
-    standard_fields = ("OBJECTID", "SHAPE")
-    event_fields = ("FROMDATE", "TODATE", "EVENTID", "ROUTEID", "LOCERROR")
-
-    event_behvaiours_sheet = "Event Behaviors"
-    event_behaviours_start_row = 2
-
-    def __init__(self, source, sheet_name):
-        self.source = source
-        self.sheet_name = sheet_name
-
-        self.df = pd.read_excel(source, sheet_name=sheet_name)
-        self.df = self.df.fillna('')
-
-        self.df_event_behaviours = pd.read_excel(
-            self.source,
-            sheet_name=LrsEventForm.event_behvaiours_sheet,
-            header=LrsEventForm.event_behaviours_start_row
-        )
-
-        self.event_field = self.get_event_field()
-
-    def get_event_field(self):
-        # Event field is the first row after LOCERROR
-        # Get index of row with LOCERROR
-        locerror_idx = self.df["FieldName"].tolist().index("LOCERROR")
-        event_field_info = self.df.iloc[locerror_idx + 1]
-        return event_field_info.loc["FieldName"]
-
-    def field_info(self):
-        self.df.set_index("FieldName", inplace=True)
-
-        fields = [x for x in self.df.index if x not in ("OBJECTID", "GLOBALID", "SHAPE")]
-        field_info_df = self.df.loc[fields]
-
-        field_info_df.reset_index(inplace=True)
-        self.df.reset_index(inplace=True)
-
-        field_info = field_info_df.to_dict('records')
-
-        # TODO: Translate field types into types recognized by AddField GP tool
-
-        return field_info
-
-    def event_behviours(self):
-        # Find row with Activity and Rule values
-        return self.df_event_behaviours.to_dict('records')
 
 
 if __name__ == "__main__":
@@ -67,11 +19,11 @@ if __name__ == "__main__":
     # xl = r"T:\work\giss\monthly\202501jan\gallaga\E_PavementDistress\Pavement Distress 2024\PavementDistress_2024_New_Event_Request.xlsx"
 
     xls_info = {
-        r"T:\work\giss\monthly\202502feb\gallaga\E_PavementRoughness\Pavement Roughness 2016\PavementRoughness_2016_New_Event_Request.xlsx": 'E_PavementRoughness2016',
-        r"T:\work\giss\monthly\202502feb\gallaga\E_PavementRoughness\Pavement Roughness 2018\PavementRoughness_2018_New_Event_Request.xlsx": 'E_PavementRoughness2018',
-        r"T:\work\giss\monthly\202502feb\gallaga\E_PavementRoughness\Pavement Roughness 2020\PavementRoughness_2020_New_Event_Request.xlsx": 'E_PavementRoughness2020',
-        r"T:\work\giss\monthly\202502feb\gallaga\E_PavementRoughness\Pavement Roughness 2022\PavementRoughness_2022_New_Event_Request.xlsx": 'E_PavementRoughness2022',
-        r"T:\work\giss\monthly\202502feb\gallaga\E_PavementRoughness\Pavement Roughness 2024\PavementRoughness_2024_New_Event_Request.xlsx": 'E_PavementRoughness2024',
+        # r"T:\work\giss\monthly\202502feb\gallaga\E_PavementRoughness\Pavement Roughness 2016\PavementRoughness_2016_New_Event_Request.xlsx": 'E_PavementRoughness2016',
+        r"T:\work\giss\monthly\202507july\gallaga\CurbCondition_2021\CurbCondition2021_New_Event_Request_250709.xlsx": {
+            'sheet_name': 'DATASET DETAILS',
+            'event_name': "E_CurbCondition2021"
+        },
     }
 
     local_gdb = arcpy.CreateFileGDB_management(os.getcwd(), "scratch.gdb")[0]
@@ -84,15 +36,17 @@ if __name__ == "__main__":
 
     for xl in xls_info:
 
-        event_name = xls_info[xl]
+        event_name = xls_info[xl]["event_name"]
+        sheet_name = xls_info[xl]["sheet_name"]
+
         print(f"\nEvent: {event_name.upper()}")
 
         workbook = pd.read_excel(xl, sheet_name=None)
 
-        lrs_form = LrsEventForm(xl, event_name)
+        lrs_form = LrsEventForm(xl, sheet_name=sheet_name)
         form_field_info = lrs_form.field_info()
 
-        # TODO: CREATE FEATURE IN GEODATABASE
+        # CREATE FEATURE IN GEODATABASE
         local_lrs_feature = os.path.join(local_gdb, event_name)
 
         if not arcpy.Exists(local_lrs_feature):
@@ -117,11 +71,15 @@ if __name__ == "__main__":
             print(f"\nAdding fields...")
             for info in form_field_info:
 
-                field_name = info["FieldName"]
-                field_type = info['Type'].upper()
+                field_type = info['Field Type'].upper()
+
+                field_name = info[LrsEventForm.field_name_field]
 
                 if field_name.upper() in current_event_fields or not field_name:
                     continue
+                #
+                # elif field_name in LrsEventForm.standard_fields:
+                #     continue
 
                 if field_name not in LrsEventForm.standard_fields:
                     print(f"\nAdding field '{field_name}'...")
@@ -132,7 +90,7 @@ if __name__ == "__main__":
                         field_type=field_type,
                         field_precision="",
                         field_scale="",
-                        field_length=info["Length"],
+                        field_length=info["Field Length"],
                         field_alias=info["Alias"],
                         field_is_nullable="NULLABLE",
                         field_domain=info['Domain']
@@ -149,9 +107,9 @@ if __name__ == "__main__":
                     # )
 
         for sde_workspace in [
-            r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm_branch.sde",
+            # r"E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm_branch.sde",
             # r"E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm_branch.sde",
-            # r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm_branch.sde"
+            r"E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm_branch.sde"
         ]:
 
             # TODO: COPY TO FEATURE DATASET
