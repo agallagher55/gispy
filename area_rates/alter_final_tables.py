@@ -119,7 +119,8 @@ if __name__ == "__main__":
         with arcpy.EnvManager(workspace=sde_workspace):
 
             final_tables = sorted(
-                [x for x in arcpy.ListTables("*_FINAL_SAP") if x.split("SDEADM.")[1] not in skip_tables])
+                [x for x in arcpy.ListTables("*_FINAL_SAP") if x.upper().split("SDEADM.")[1] not in skip_tables]
+            )
 
             final_sde_table = update_sde_aggregate_table(
                 sde_workspace=sde_workspace,
