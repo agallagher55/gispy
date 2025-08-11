@@ -132,15 +132,7 @@ if __name__ == "__main__":
                     sde_table=final_sde_table
                 )
 
-            # if workspace.upper().endswith(".GDB"):
-            #     feature = feature.replace("SDEADM.", "")
-            #
-            # m050_aans = [row[0] for row in arcpy.da.SearchCursor(feature, "AAN")]
-
-            # add_to_feature(feature, data)
-
         # STATISTICS
-
         # https://gisapp-int-qa.halifax.ca/hrm/rest/services/Area_Rates/Area_Rate_Overlay_Result/MapServer/1/query?where=1%3D1&text=&objectIds=&time=&timeRelation=esriTimeRelationOverlaps&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&distance=&units=esriSRUnit_Foot&relationParam=&outFields=*&returnGeometry=false&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&outSR=&havingClause=&returnIdsOnly=false&returnCountOnly=false&orderByFields=AREARATE_CODE&groupByFieldsForStatistics=AREARATE_CODE&outStatistics=%5B%7B%0D%0A++++%22statisticType%22%3A+%22count%22%2C%0D%0A++++%22onStatisticField%22%3A+%22AREARATE_CODE%22%2C+%0D%0A++++%22outStatisticFieldName%22%3A+%22Count%22%0D%0A%7D%5D&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&returnExtentOnly=false&sqlFormat=none&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=html
 
         print(f"\n{datetime.now()}")
