@@ -44,72 +44,36 @@ CURRENT_DIR = getcwd()
 
 # TODO: UPDATE ME
 new_field_info = {
-    "SDEADM.CEN_census_division_2021": {
-        "CENYEAR": {
-            "alias": "Census Year",
-            "field_type": "Short",
-            "field_length": "",
-            "nullable": "NULLABLE",
-            "default": "",
-            "domain": ""
-        },
-        "CDPOP": {
-            "alias": "CD Population",
+
+    "SDEADM.ADM_polling_district_2016": {
+
+        "DISTPOP": {
+            "alias": "2016 Census Population",
             "field_type": "Long",
             "field_length": "",
             "nullable": "NULLABLE",
             "default": "",
             "domain": ""
         },
-        "CDPOPCHG": {
-            "alias": "CD Population Change",
-            "field_type": "Double",
-            "field_length": "",
-            "nullable": "NULLABLE",
-            "default": "",
-            "domain": ""
-        },
-        "CDDWELL": {
-            "alias": "CD Private Dwellings",
+        "DISTDWEL": {
+            "alias": "2016 Total Dwellings",
             "field_type": "Long",
             "field_length": "",
             "nullable": "NULLABLE",
             "default": "",
             "domain": ""
         },
-        "CDOCDWELL": {
-            "alias": "CD Occupied Dwellings",
-            "field_type": "Long",
-            "field_length": "",
-            "nullable": "NULLABLE",
-            "default": "",
-            "domain": ""
-        },
-        "CDPOPDEN": {
-            "alias": "CD Population Density",
-            "field_type": "Double",
-            "field_length": "",
-            "nullable": "NULLABLE",
-            "default": "",
-            "domain": ""
-        },
-        "SOURCE": {
-            "alias": "Data Source",
+        "POPSOURCE": {
+            "alias": "Population Source",
             "field_type": "Text",
             "field_length": "50",
             "nullable": "NULLABLE",
-            "default": "",
+            "default": "98-316-X2016001",
             "domain": ""
         },
-        "RELDATE": {
-            "alias": "Released Date",
-            "field_type": "Date",
-            "field_length": "",
-            "nullable": "NULLABLE",
-            "default": "",
-            "domain": ""
-        }
+
     },
+
 }
 
 if __name__ == "__main__":
@@ -118,7 +82,6 @@ if __name__ == "__main__":
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
     for dbs in [
-        # WEBGIS features can use domains from SDEADM owner - don't need to create a domain for both SDEADM and WEBGIS
 
         [
             config.get(run_from, "dev_rw"),
@@ -148,9 +111,6 @@ if __name__ == "__main__":
 
                     if db.endswith(".gdb"):
                         update_feature = update_feature.replace("SDEADM.", "")
-
-                    elif "WEBGIS" in db.upper():
-                        update_feature = update_feature.replace("SDEADM.", "WEBGIS.")
 
                     logger.info(f"Feature: {update_feature}")
 
