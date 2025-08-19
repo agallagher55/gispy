@@ -108,7 +108,7 @@ class Feature:
         return self.feature
 
     @arcpy_messages
-    def add_field(self, field_name: str, field_type: Union[int, str], length: int, alias: str, domain_name: str,
+    def add_field(self, field_name: str, field_type: str, length: Union[int, str], alias: str, domain_name: str,
                   precision: str = "#", scale: str = "#"):
         """
         Although the Field object's type property values are not an exact match for the keywords used by the Add Field
@@ -121,7 +121,6 @@ class Feature:
            :param field_type:
            :param length:
            :param alias:
-           :param nullable:
            :param domain_name:
            :return:
            """
