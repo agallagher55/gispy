@@ -3,6 +3,8 @@ import os
 
 import arcpy
 
+from typing import Union
+
 arcpy.env.overwriteOutput = True
 
 EDITOR_TRACKING_FIELD_INFO = {
@@ -50,7 +52,8 @@ def arcpy_messages(func):
 
 
 class Feature:
-    def __init__(self, workspace, feature_name: str, geometry_type, feature_dataset: str = None, spatial_reference=None, alias: str = "#"):
+    def __init__(self, workspace, feature_name: str, geometry_type, feature_dataset: str = None, spatial_reference=None,
+                 alias: str = "#"):
         self.workspace = workspace
         self.feature_dataset = feature_dataset
         self.feature_name = feature_name
@@ -105,16 +108,20 @@ class Feature:
         return self.feature
 
     @arcpy_messages
-    def add_field(self, field_name: str, field_type: str, length: int, alias: str, domain_name: str, precision: str="#", scale: str="#"):
+    def add_field(self, field_name: str, field_type: Union[int, str], length: int, alias: str, domain_name: str,
+                  precision: str = "#", scale: str = "#"):
         """
         Although the Field object's type property values are not an exact match for the keywords used by the Add Field
         tool's field_type parameter, all of the Field object's type values can be used as input to this parameter.
         The different field types are mapped as follows: Integer to LONG, String to TEXT, and SmallInteger to SHORT.
 
+           :param precision: 
+           :param scale: 
            :param field_name:
            :param field_type:
            :param length:
            :param alias:
+           :param nullable:
            :param domain_name:
            :return:
            """
@@ -212,6 +219,12 @@ class Feature:
         """
         The enable_editor_tracking function enables editor tracking on a feature class.
 
+        :param creator_field: str: Specify the field that will store the name of the user who created a record
+        :param creation_date_field: str: Specify the name of the field that will store creation dates
+        :param last_editor_field: str: Define the field name that will be used to store the user who last edited a feature
+        :param last_edit_date_field: str: Determine the field name that will store the last edit date
+        :param add_fields: str: Determine whether or not to add the fields
+        :param record_dates_in: str: Specify the time zone in which to record dates
         :return: A boolean value
         """
 
@@ -249,8 +262,8 @@ class Feature:
         )
 
     @arcpy_messages
-    def add_globalids(self):
-        print(f"\nAdding GlobalIDs to '{self.feature}'...")
+    def add_gloablids(self):
+        print(f"\nAdding GloablIDs to '{self.feature}'...")
 
         if "GlobalID" in self.fields:
             print(f"{self.feature} already has a GlobalID field.")
@@ -298,11 +311,4 @@ class Table(Feature):
         self.geometry_type = None
         self.spatial_reference = None
 
-        super(Table, self).__init__(
-            workspace=workspace,
-            feature_name=feature_name,
-            geometry_type=self.geometry_type,
-            feature_dataset=None,
-            spatial_reference=self.spatial_reference,
-            alias=alias,
-        )
+        super(Table, self).__init__(workspace, feature_name, self.geometry_type, self.spatial_reference, alias)
