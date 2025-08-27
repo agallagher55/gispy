@@ -260,4 +260,5 @@ class DomainsReport(Report):
                 if not num_df_rows == 0:
                     domain_dataframes[current_domain_name] = domain_df
 
+
         return domain_names, domain_dataframes
