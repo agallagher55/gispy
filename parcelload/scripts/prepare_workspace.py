@@ -1,5 +1,5 @@
 """
-- *Make sure to update PARCEL_DATA_EXTRACT location in settings_section2.py
+- *Make sure to update PARCEL_DATA_EXTRACT location in config.ini
 - ~2 minutes
 """
 
@@ -273,8 +273,12 @@ def prepare_prov_shapefiles(feature_info: dict):
     select_sdeadm_gsa_polygon = os.path.join(PARCEL_LOAD_DIR, "Select_SDEADM_GSA_Polygon.shp")
 
     out_coor_system = "PROJCS['NAD_1983_CSRS_2010_MTM_5_Nova_Scotia',GEOGCS['GCS_North_American_1983_CSRS_2010',DATUM['D_North_American_1983_CSRS',SPHEROID['GRS_1980',6378137.0,298.257222101]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]],PROJECTION['Transverse_Mercator'],PARAMETER['False_Easting',25500000.0],PARAMETER['False_Northing',0.0],PARAMETER['Central_Meridian',-64.5],PARAMETER['Scale_Factor',0.9999],PARAMETER['Latitude_Of_Origin',0.0],UNIT['Meter',1.0]]"
+
     transform_method = "ATS77_to_NAD83(CSRS)2010 + NAD83_CSRS_1997_to_NAD83_CSRS_2010"
+    transform_method = "NAD83_CSRS_1997_to_NAD83_CSRS_2010"
+
     in_coor_system = "PROJCS['ATS_1977_MTM_5_Nova_Scotia',GEOGCS['GCS_ATS_1977',DATUM['D_ATS_1977',SPHEROID['ATS_1977',6378135.0,298.257]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]],PROJECTION['Transverse_Mercator'],PARAMETER['False_Easting',5500000.0],PARAMETER['False_Northing',0.0],PARAMETER['Central_Meridian',-64.5],PARAMETER['Scale_Factor',0.9999],PARAMETER['Latitude_Of_Origin',0.0],UNIT['Meter',1.0]]"
+    in_coor_system = 'PROJCS["NAD_1983_CSRS_UTM_Zone_20N",GEOGCS["GCS_North_American_1983_CSRS",DATUM["D_North_American_1983_CSRS",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-63.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
 
     logger.info("Preparing provincial shapefiles...")
 
@@ -291,14 +295,35 @@ def prepare_prov_shapefiles(feature_info: dict):
         # C:\Users\{user}\AppData\Roaming\ESRI\Desktop10.8\ArcToolbox\CustomTransformations to
         # C:\Users\{user}\AppData\Roaming\ESRI\ArcGISPro\ArcToolbox\CustomTransformations
 
-        arcpy.Project_management(
-            in_dataset=feature,
-            out_dataset=projected_feature,
-            out_coor_system=out_coor_system,
-            transform_method=transform_method,
-            in_coor_system=in_coor_system,
+        # arcpy.Project_management(
+        #     in_dataset=feature,
+        #     out_dataset=projected_feature,
+        #     out_coor_system=out_coor_system,
+        #     transform_method=transform_method,
+        #     in_coor_system=in_coor_system,
+        #     preserve_shape="NO_PRESERVE_SHAPE",
+        #     max_deviation="#",
+        #     vertical="NO_VERTICAL"
+        # )
+
+        arcpy.management.Project(
+            in_dataset=r"T:\work\giss\monthly\202508aug\gallaga\parcel_load\HRM_30477\HRM_20250806_Parcels.shp",
+            out_dataset=r"C:\Workspace\Parcel_Load\Scratch\HRM_Parcels_MTM_NAD83.shp",
+            out_coor_system='PROJCS["NAD_1983_CSRS_2010_MTM_5_Nova_Scotia",GEOGCS["GCS_North_American_1983_CSRS_2010",DATUM["D_North_American_1983_CSRS",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",25500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-64.5],PARAMETER["Scale_Factor",0.9999],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
+            transform_method="NAD83_CSRS_1997_to_NAD83_CSRS_2010",
+            in_coor_system='PROJCS["NAD_1983_CSRS_UTM_Zone_20N",GEOGCS["GCS_North_American_1983_CSRS",DATUM["D_North_American_1983_CSRS",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-63.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
             preserve_shape="NO_PRESERVE_SHAPE",
-            max_deviation="#",
+            max_deviation=None,
+            vertical="NO_VERTICAL"
+        )
+        arcpy.management.Project(
+            in_dataset=r'C:\Workspace\Parcel_Load\Scratch\HRM_20250806_Lines.shp',
+            out_dataset=r"C:\Workspace\Parcel_Load\Scratch\HRM_Lines_MTM_NAD83.shp",
+            out_coor_system='PROJCS["NAD_1983_CSRS_2010_MTM_5_Nova_Scotia",GEOGCS["GCS_North_American_1983_CSRS_2010",DATUM["D_North_American_1983_CSRS",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",25500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-64.5],PARAMETER["Scale_Factor",0.9999],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
+            transform_method="'ATS77_to_NAD83(CSRS)2010 + NAD83_CSRS_1997_to_NAD83_CSRS_2010'",
+            in_coor_system='PROJCS["ATS_1977_MTM_5_Nova_Scotia",GEOGCS["GCS_ATS_1977",DATUM["D_ATS_1977",SPHEROID["ATS_1977",6378135.0,298.257]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",5500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-64.5],PARAMETER["Scale_Factor",0.9999],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]',
+            preserve_shape="NO_PRESERVE_SHAPE",
+            max_deviation=None,
             vertical="NO_VERTICAL"
         )
 
