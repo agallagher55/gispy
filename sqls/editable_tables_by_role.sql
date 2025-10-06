@@ -26,7 +26,7 @@ WHERE --dp.name LIKE @RoleName AND
   AND o.name NOT LIKE 'T_[0-9]_%'
 
   --AND p.permission_name LIKE '%,%'
-  AND dp.name LIKE 'HRM%' AND dp.name NOT IN ('HRM\GIS_HW_ARCGIS_HRMBASIC', 'HRM_CITYWORKS_USER', 'HRM_TRFSDY_USER') 
+  AND dp.name LIKE 'HRM%' AND dp.name NOT IN ('HRM\GIS_HW_ARCGIS_HRMBASIC', 'HRM_CITYWORKS_USER', 'HRM_TRFSDY_USER', 'HRM_REAL_ESTATE_USER') 
   AND dp.name NOT LIKE '%READER%' AND dp.name NOT LIKE '%VIEWER%'
 
 GROUP BY dp.name, SCHEMA_NAME(o.schema_id), o.name
