@@ -1,7 +1,3 @@
-"""
-Date:
-"""
-
 import arcpy
 import os
 import sys
@@ -11,6 +7,8 @@ import traceback
 import logging
 
 from configparser import ConfigParser
+
+from zipp.glob import separate
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -41,13 +39,13 @@ logger.addHandler(console_handler)
 
 config = ConfigParser()
 config.read('config.ini')
+
 # VARIABLES
 update_feature_info = {
-    "SDEADM.ADM_gflum_regplan": {
-        "field": "DESCRIP",
-        "new_name": "DESIG",
-        "new_alias": "Designation",
-        # "new_length": 6
+    "SDEADM.LND_special_planning_areas": {
+        "field": "SPA_NAME",
+        # "new_name": "DESIG",
+        "new_alias": "Special Planning Area Name",
     },
     # "SDEADM.CEN_census_subdivision_2016": {
     #     "field": "LANDAREA",
@@ -58,7 +56,6 @@ update_feature_info = {
 
 # Functions
 def update_field_config(feature, field=None, alias=None, name=None, field_type=None, length=None, nullable=None):
-
     logger.info(f"Updating field configuration...")
 
     arcpy.AlterField_management(
@@ -76,14 +73,16 @@ def update_field_config(feature, field=None, alias=None, name=None, field_type=N
 
 if __name__ == "__main__":
 
-    startTime = time.asctime(time.localtime(time.time()))
-    logger.info("Start: " + startTime)
-    logger.info("-----------------------")
+    separator = "-" * 70
+
+    start_time = time.asctime(time.localtime(time.time()))
+    logger.info(f"Start: {start_time}")
+    logger.info(separator)
 
     PC_NAME = os.environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    logger.info(f"PC Name: {PC_NAME}\n\tRunning from: {run_from}...")
+    logger.info(f"PC Name: {PC_NAME}Running from: {run_from}...")
 
     try:
 
@@ -94,8 +93,8 @@ if __name__ == "__main__":
                 # config.get(run_from, "dev_web_ro_gdb")
             # ],
             [
-                # config.get("SERVER", "qa_rw"),
-                # config.get("SERVER", "qa_ro"),
+                config.get("SERVER", "qa_rw"),
+                config.get("SERVER", "qa_ro"),
                 config.get("SERVER", "qa_web_ro_gdb"),
             ],
             # [
@@ -105,10 +104,10 @@ if __name__ == "__main__":
             # ],
         ]:
             if dbs:
-                logger.info(f"\nProcessing dbs: {', '.join(dbs)}...")
+                logger.info(f"Processing dbs: {', '.join(dbs)}...")
 
                 for db in dbs:
-                    logger.info(f"\nDATABASE: {db}")
+                    logger.info(f"DATABASE: {db}")
 
                     for update_feature in update_feature_info:
 
@@ -153,11 +152,9 @@ if __name__ == "__main__":
         msgs = "GP ERRORS:\n" + arcpy.GetMessages(2) + "\n"
         logger.error(msgs)
 
-        # send_error("ERROR - BUILDING PERMIT ERROR", "DC1-GIS-APP-Q203 / BuildingPermits.py")
-
         sys.exit()
 
     # Close the Log File:
-    endTime = time.asctime(time.localtime(time.time()))
-    logger.info("-----------------------")
-    logger.info("End: " + endTime)
+    end_time = time.asctime(time.localtime(time.time()))
+    logger.info(separator)
+    logger.info(f"End: {end_time}")
