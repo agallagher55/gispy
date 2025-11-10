@@ -1,3 +1,7 @@
+"""
+Date:
+"""
+
 import arcpy
 import os
 import sys
@@ -42,15 +46,17 @@ config.read('config.ini')
 
 # VARIABLES
 update_feature_info = {
-    "SDEADM.LND_special_planning_areas": {
-        "field": "SPA_NAME",
-        # "new_name": "DESIG",
-        "new_alias": "Special Planning Area Name",
-    },
-    # "SDEADM.CEN_census_subdivision_2016": {
-    #     "field": "LANDAREA",
-    #     "new_alias": "Land Area (sq km)",
-    # },
+    "SDEADM.TRN_traffic_calming_assessm": [
+        {
+            "field": "FILE_NAME",
+            # "new_name": "DESIG",
+            "new_alias": "Original Speed File",
+        },
+        {
+            "field": "UFILE_NAME",
+            "new_alias": "Updated Speed File",
+        },
+    ]
 }
 
 
@@ -87,53 +93,56 @@ if __name__ == "__main__":
     try:
 
         for dbs in [
-            # [
-                # config.get(run_from, "dev_rw"),
-                # config.get(run_from, "dev_ro"),
-                # config.get(run_from, "dev_web_ro_gdb")
-            # ],
             [
-                config.get("SERVER", "qa_rw"),
-                config.get("SERVER", "qa_ro"),
-                config.get("SERVER", "qa_web_ro_gdb"),
+            config.get(run_from, "dev_rw"),
+            # config.get(run_from, "dev_ro"),
+            # config.get(run_from, "dev_web_ro_gdb")
             ],
+            # [
+            #     config.get("SERVER", "qa_rw"),
+            #     config.get("SERVER", "qa_ro"),
+            #     config.get("SERVER", "qa_web_ro_gdb"),
+            # ],
             # [
             #     config.get("SERVER", "prod_rw"),
             #     config.get("SERVER", "prod_ro"),
             #     config.get("SERVER", "prod_web_ro_gdb"),
             # ],
         ]:
+    
             if dbs:
                 logger.info(f"Processing dbs: {', '.join(dbs)}...")
-
+    
                 for db in dbs:
                     logger.info(f"DATABASE: {db}")
-
+    
                     for update_feature in update_feature_info:
-
+    
                         with arcpy.EnvManager(workspace=db):
-
-                            field = update_feature_info[update_feature]['field']
-
-                            new_alias = update_feature_info[update_feature].get('new_alias')
-                            new_length = update_feature_info[update_feature].get('new_length')
-                            new_name = update_feature_info[update_feature].get('new_name')
-                            new_type = update_feature_info[update_feature].get('new_type')
-
-                            if db.upper().endswith("GDB"):
-                                update_feature = update_feature.upper().replace("SDEADM.", "")
-
-                            update_field_config(
-                                feature=update_feature,
-                                field=field,
-                                name=new_name,
-                                alias=new_alias,
-                                field_type=new_type,
-                                length=new_length,
-                                nullable="#",
-                            )
-
-                            logger.info(arcpy.GetMessages())
+    
+                            for field_info in update_feature_info[update_feature]:
+    
+                                field = field_info['field']
+    
+                                new_alias = field_info.get('new_alias')
+                                new_length = field_info.get('new_length')
+                                new_name = field_info.get('new_name')
+                                new_type = field_info.get('new_type')
+    
+                                if db.upper().endswith("GDB"):
+                                    update_feature = update_feature.upper().replace("SDEADM.", "")
+    
+                                update_field_config(
+                                    feature=update_feature,
+                                    field=field,
+                                    name=new_name,
+                                    alias=new_alias,
+                                    field_type=new_type,
+                                    length=new_length,
+                                    nullable="#",
+                                )
+    
+                                logger.info(arcpy.GetMessages())
 
     except arcpy.ExecuteError:
         arcpy_msg = arcpy.GetMessages(2)
