@@ -26,6 +26,7 @@ config = ConfigParser()
 config.read('config.ini')
 
 feature_config = ConfigParser()
+feature_config.optionxform = str  # preserve case
 feature_config.read('feature_config.ini')
 
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
@@ -43,7 +44,8 @@ SUBTYPE_DOMAINS = eval(feature_config.get("FEATURE_SETTINGS", "subtype_domains")
 
 TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
 
-UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", "TRN_park_and_ride"))
+# TODO: update
+UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", "LND_facilities_snow_contract"))
 NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
 VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
 
@@ -59,7 +61,6 @@ if "GIS" in os.environ.get("COMPUTERNAME").upper():
 
 SPATIAL_REFERENCE = os.path.join(PROD_SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
 
-
 if __name__ == "__main__":
 
     if ADD_EDITOR_TRACKING:
@@ -68,12 +69,12 @@ if __name__ == "__main__":
     CURRENT_DIR = os.getcwd()
 
     for dbs in [
-        # [
-        #     config.get("SERVER", "dev_rw"),
-        # ],
         [
-            config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
+            config.get("SERVER", "dev_rw"),
         ],
+        # [
+        #     config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
+        # ],
         # [
         #     config.get("SERVER", "prod_rw"),
         # ],
@@ -101,13 +102,19 @@ if __name__ == "__main__":
 
                 domains_report = DomainsReport(xl_file)
 
-                domain_names = domains_report.domain_names
-                domain_dataframes = domains_report.domain_data
+                # domain_data, domain_dataframes = domains_report.domain_info()
+                domain_names, domain_dataframes = domains_report.domain_info()
+                # domain_names = list(domain_data.keys())
 
-                if SUBTYPES:
-                    subtype_info = fields_report.subtype_info()
-                    subtype_field = subtype_info.get("subtype_field")
-                    subtype_domains_field = subtype_info.get("subtype_domains_field")
+                # if SUBTYPES:
+                #     subtype_info = fields_report.subtype_info()
+                #     subtype_field = subtype_info.get("subtype_field")
+                #     subtype_field = \
+                #         [value.get("subtype_field") for key, value in domain_data.items() if
+                #          value.get("subtype_field")][0]
+                #     subtype_domains_field = subtype_info.get("subtype_domains_field")
+                #     subtype_data = {key: value for key, value in domain_data.items() if
+                #                     domain_data[key].get("subtype_code")}
 
                 if db_type == "GDB":
 
@@ -160,12 +167,28 @@ if __name__ == "__main__":
                         domain_df = domain_dataframes.get(domain)
 
                         # Populate new domains with codes and values:
-                        sort_key = lambda x: x.Description
+                        # sort_key = lambda x: x.Description
+
+                        def sort_key(row):
+                            val = row.Description
+
+                            # Put None at the end
+                            if val is None:
+                                return 2, ""
+
+                            # Try numeric first
+                            try:
+                                return 0, int(val)  # numeric bucket, sorted numerically
+
+                            except (TypeError, ValueError):
+                                return 1, str(val)  # non numeric, sorted alphabetically
+
 
                         if SUBTYPE_DOMAINS:
                             if domain in [d["domain"] for d in SUBTYPE_DOMAINS["domains"]]:
                                 sort_key = lambda x: x.Code
 
+                        # TypeError: '<' not supported between instances of 'str' and 'int' (LND_fac_snow_group_type)
                         for row in sorted([x for x in domain_df.itertuples()], key=sort_key):
                             code = row.Code
                             desc = row.Description
@@ -197,7 +220,8 @@ if __name__ == "__main__":
                     for row_num, row in field_data.iterrows():
 
                         field_name = row["Field Name"].upper().strip()
-                        field_length = row["Field Length (# of characters)"]
+                        # field_length = row["Field Length (# of characters)"]
+                        field_length = row["Field Length"]
 
                         if field_name not in SDSF_IGNORE_FIELDS:
                             alias = row["Alias"]
