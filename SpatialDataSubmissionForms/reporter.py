@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import pandas as pd
 
 
@@ -168,7 +170,7 @@ class DomainsReport(Report):
         # SpatialDataSubmissionForms.main
         self.domain_names, self.domain_data = self.domain_info()
 
-    def domain_info(self):
+    def domain_info(self) -> Tuple[list, dict]:
         """Parse domain information from the SDSF worksheet.
 
         Returns a tuple of ``(domain_names, domain_data)`` where
@@ -192,13 +194,16 @@ class DomainsReport(Report):
 
         # Create json structure for domains
         index_data = dict()
+
         # Iterate through index to domains
         for count, index_value in enumerate(self.domain_df.index):
 
             if str(index_value).upper() == "CODE":
                 
                 prev_row = count - 1
-                domain_field_name = df_index[prev_row]
+                domain_field_name = df_index[prev_row]  # TODO: This is not the field name.
+
+                # domain_name = df_index[prev_row]  # The value above "Code"
                 domain_name = self.domain_df.iloc[prev_row, 0]
 
                 row_index_start = self.domain_df.index.tolist().index(domain_field_name)  # Domain name will precede row index with value of Code
