@@ -28,14 +28,27 @@ logger.addHandler(console_handler)  # print logs to console
 if __name__ == "__main__":
 
     # TODO: UPDATE ME
-    FEATURE = "SDEADM.AST_ped_ramp"
+    FEATURE = "SDEADM.TRN_street_non_hrm"
 
     FIELD_DEFAULTS = {
-        # "SOURCE": "Clean Energy",
+        "FCODE": "RRRD",
+        "STR_STATUS": "OPEN",
+        "FROM_ELEV": 0,
+        "TO_ELEV": 0,
+        "STR_REM": "STREET LOCATED OUTSIDE OF HRM",
+        "PSAB_CODE": "DM",
+        "ACC": "NSPRD",
+        "SOURCE": "DM",
+        "FROM_LEFT": 0,
+        "TO_LEFT": 0,
+        "FROM_RIGHT": 0,
+        "TO_RIGHT": 0,
+        "PAR_LEFT": "OR",
+        "PAR_RIGHT": "EL",
     }
 
     REMOVE_DEFAULTS = {
-        "TWSI_MAT",
+        # "TWSI_MAT",
     }
 
     SUBTYPE_CODES = [
@@ -45,7 +58,6 @@ if __name__ == "__main__":
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    # for connection in web_gdbs:
     for dbs in [
 
         [
@@ -98,7 +110,7 @@ if __name__ == "__main__":
                                         clear_value="DO_NOT_CLEAR"
                                     )[0]
 
-                                    logger.debug(result)
+                                    logger.info(arcpy.GetMessages(0))
 
                         if REMOVE_DEFAULTS:
 
@@ -113,7 +125,7 @@ if __name__ == "__main__":
                                     clear_value="CLEAR_VALUE"
                                 )[0]
 
-                                logger.debug(result)
+                                logger.info(arcpy.GetMessages(0))
 
                     except Exception as e:
                         logger.error(e)
