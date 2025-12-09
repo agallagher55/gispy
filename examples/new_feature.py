@@ -45,8 +45,7 @@ SUBTYPE_DOMAINS = eval(feature_config.get("FEATURE_SETTINGS", "subtype_domains")
 TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
 
 # TODO: update
-# UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", "LND_facilities_snow_contract"))
-UNIQUE_ID_FIELDS = eval(feature_config.get("FEATURE_SETTINGS", "unique_id_fields"))
+# UNIQUE ID FIELDS
 NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
 VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
 
@@ -95,6 +94,8 @@ if __name__ == "__main__":
 
                 feature_name = fields_report.feature_class_name  # Should be all lower case except for the prefix
                 feature_shape = fields_report.feature_shape
+
+                UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", feature_name, fallback='[]'))
 
                 if feature_shape.upper() == "LINE":
                     feature_shape = "Polyline"
@@ -165,6 +166,7 @@ if __name__ == "__main__":
                             print(f"^^^*(Sometimes this fails in the script, but domain still gets created.)")
 
                         domain_df = domain_dataframes.get(domain)
+
 
                         def sort_key(row):
                             val = row.Description
@@ -307,7 +309,7 @@ if __name__ == "__main__":
                                 print(f"\tCopying RW feature to {ro_db}...")
 
                                 # Need to use table to table if a table...
-                                if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
+                                if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE' or 'NOT APPLICABLE':
                                     feature = arcpy.TableToTable_conversion(
                                         in_rows=new_feature.feature,
                                         out_path=ro_db,
