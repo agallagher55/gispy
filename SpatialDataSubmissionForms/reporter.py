@@ -129,7 +129,7 @@ class FieldsReport(Report):
                 if "SHAPE_LENGTH" not in [str(x).upper() for x in df_index_values]:
                     raise IndexError(f"ERROR: SDSF needs to have a SHAPE_LENGTH field.")
 
-            elif self.feature_shape.upper() == "NOT APPLICABLE":
+            elif self.feature_shape.upper() == "NOT APPLICABLE" or self.feature_shape.upper() == "POINT":
                 FieldsReport.last_field_name = "GLOBALID"
 
         df_field_details = self.df.loc["Alias":FieldsReport.last_field_name]
