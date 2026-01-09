@@ -26,11 +26,12 @@ config = ConfigParser()
 config.read('config.ini')
 
 feature_config = ConfigParser()
-feature_config.optionxform = str  # preserve case
-feature_config.read('feature_config.ini')
+feature_config.read('feature_config_LOCATIONS.ini')
 
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
 SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
+SHEET_NAME = feature_config.get("SDSF_SETTINGS", "sheet_name")
+
 
 ADD_EDITOR_TRACKING = feature_config.getboolean("FEATURE_SETTINGS", "add_editor_tracking")
 EDIT_PERMISSIONS_USERS = ast.literal_eval(feature_config.get("FEATURE_SETTINGS", "EDIT_PERMISSIONS_USERS"))
@@ -44,8 +45,8 @@ SUBTYPE_DOMAINS = eval(feature_config.get("FEATURE_SETTINGS", "subtype_domains")
 
 TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
 
-# TODO: update
-# UNIQUE ID FIELDS
+# TODO: Update me
+UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", "LND_encampment_locations_NEW"))
 NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
 VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
 
@@ -90,32 +91,31 @@ if __name__ == "__main__":
                 SDSF,
             ]:
                 print(f"\nCreating feature from {xl_file}...")
-                fields_report = FieldsReport(xl_file)
+                fields_report = FieldsReport(xl_file, sheet_name=SHEET_NAME)
 
                 feature_name = fields_report.feature_class_name  # Should be all lower case except for the prefix
                 feature_shape = fields_report.feature_shape
-
-                UNIQUE_ID_FIELDS = eval(feature_config.get("UNIQUE_ID_FIELDS", feature_name, fallback='[]'))
 
                 if feature_shape.upper() == "LINE":
                     feature_shape = "Polyline"
 
                 field_data = fields_report.field_details
 
-                domains_report = DomainsReport(xl_file)
+                domains_report = DomainsReport(xl_file, sheet_name=SHEET_NAME)
 
-                domain_names, domain_dataframes = domains_report.domain_info()
+                domain_data, domain_dataframes = domains_report.domain_info()
                 # domain_names = list(domain_data.keys())
+                domain_names = domain_data
 
-                # if SUBTYPES:
-                #     subtype_info = fields_report.subtype_info()
-                #     subtype_field = subtype_info.get("subtype_field")
-                #     subtype_field = \
-                #         [value.get("subtype_field") for key, value in domain_data.items() if
-                #          value.get("subtype_field")][0]
-                #     subtype_domains_field = subtype_info.get("subtype_domains_field")
-                #     subtype_data = {key: value for key, value in domain_data.items() if
-                #                     domain_data[key].get("subtype_code")}
+                if SUBTYPES:
+                    subtype_info = fields_report.subtype_info()
+                    subtype_field = subtype_info.get("subtype_field")
+                    subtype_field = \
+                        [value.get("subtype_field") for key, value in domain_data.items() if
+                         value.get("subtype_field")][0]
+                    subtype_domains_field = subtype_info.get("subtype_domains_field")
+                    subtype_data = {key: value for key, value in domain_data.items() if
+                                    domain_data[key].get("subtype_code")}
 
                 if db_type == "GDB":
 
@@ -167,27 +167,13 @@ if __name__ == "__main__":
 
                         domain_df = domain_dataframes.get(domain)
 
-
-                        def sort_key(row):
-                            val = row.Description
-
-                            # Put None at the end
-                            if val is None:
-                                return 2, ""
-
-                            # Try numeric first
-                            try:
-                                return 0, int(val)  # numeric bucket, sorted numerically
-
-                            except (TypeError, ValueError):
-                                return 1, str(val)  # non numeric, sorted alphabetically
-
+                        # Populate new domains with codes and values:
+                        sort_key = lambda x: x.Description
 
                         if SUBTYPE_DOMAINS:
                             if domain in [d["domain"] for d in SUBTYPE_DOMAINS["domains"]]:
                                 sort_key = lambda x: x.Code
 
-                        # TypeError: '<' not supported between instances of 'str' and 'int' (LND_fac_snow_group_type)
                         for row in sorted([x for x in domain_df.itertuples()], key=sort_key):
                             code = row.Code
                             desc = row.Description
@@ -309,7 +295,7 @@ if __name__ == "__main__":
                                 print(f"\tCopying RW feature to {ro_db}...")
 
                                 # Need to use table to table if a table...
-                                if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE' or 'NOT APPLICABLE':
+                                if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
                                     feature = arcpy.TableToTable_conversion(
                                         in_rows=new_feature.feature,
                                         out_path=ro_db,
@@ -360,53 +346,58 @@ if __name__ == "__main__":
                                         View="GRANT"
                                     )
 
-                                for field_info in UNIQUE_ID_FIELDS:
-                                    id_field = field_info.get("field")
+                                if feature_name in UNIQUE_ID_FIELDS:
+                                    id_field_info = UNIQUE_ID_FIELDS[feature_name]
 
-                                    print(f"\nAdding attribute index on {id_field}...")
-                                    try:
-                                        arcpy.AddIndex_management(
-                                            in_table=feature,
-                                            fields=id_field,
-                                            index_name=f"index_{id_field}",
-                                            ascending="ASCENDING"
-                                        )
+                                    for field_info in id_field_info:
+                                        id_field = field_info.get("field")
 
-                                    except arcpy.ExecuteError:
-                                        arcpy_msg = arcpy.GetMessages(2)
-                                        print(arcpy_msg)
+                                        print(f"\nAdding attribute index on {id_field}...")
+                                        try:
+                                            arcpy.AddIndex_management(
+                                                in_table=feature,
+                                                fields=id_field,
+                                                index_name=f"index_{id_field}",
+                                                ascending="ASCENDING"
+                                            )
+
+                                        except arcpy.ExecuteError:
+                                            arcpy_msg = arcpy.GetMessages(2)
+                                            print(arcpy_msg)
 
                     if ADD_EDITOR_TRACKING:
                         # ENABLE EDITOR TRACKING
                         new_feature.enable_editor_tracking()
 
                     # Attribute Rules - Add after feature has been copied to Read-Only. RW and .gdb only
-                    for field_info in UNIQUE_ID_FIELDS:
+                    if feature_name in UNIQUE_ID_FIELDS:
+                        id_field_info = UNIQUE_ID_FIELDS[feature_name]
 
-                        id_field = field_info.get("field")
-                        prefix = field_info.get("prefix")
+                        for field_info in id_field_info:
+                            id_field = field_info.get("field")
+                            prefix = field_info.get("prefix")
 
-                        print(f"Creating Sequence and Attribute Rule for {id_field} with prefix {prefix}...")
+                            print(f"Creating Sequence and Attribute Rule for {id_field} with prefix {prefix}...")
 
-                        attribute_rules.add_sequence_rule(
-                            workspace=db,
-                            feature_name=new_feature.feature,
-                            field_name=id_field,
-                            sequence_prefix=prefix,
-                        )
-
-                        print(f"\nAdding attribute index on {id_field}...")
-                        try:
-                            arcpy.AddIndex_management(
-                                in_table=new_feature.feature,
-                                fields=id_field,
-                                index_name=f"index_{id_field}",
-                                ascending="ASCENDING"
+                            attribute_rules.add_sequence_rule(
+                                workspace=db,
+                                feature_name=new_feature.feature,
+                                field_name=id_field,
+                                sequence_prefix=prefix,
                             )
 
-                        except arcpy.ExecuteError:
-                            arcpy_msg = arcpy.GetMessages(2)
-                            print(arcpy_msg)
+                            print(f"\nAdding attribute index on {id_field}...")
+                            try:
+                                arcpy.AddIndex_management(
+                                    in_table=new_feature.feature,
+                                    fields=id_field,
+                                    index_name=f"index_{id_field}",
+                                    ascending="ASCENDING"
+                                )
+
+                            except arcpy.ExecuteError:
+                                arcpy_msg = arcpy.GetMessages(2)
+                                print(arcpy_msg)
 
     # Checks:
     # Replicas
