@@ -1,11 +1,6 @@
 update_non_prod_poly_data.py
 - Update QA boundaries with prod data
 
-prepare_workspace.py
-- create new workspace folder
-- create geodatabase to archive last season's table
-- create geodatabase to record this season's parcels and linns tables
-
 area_rates.py
     - Create SDE GIS Area Rate tables
 
@@ -34,8 +29,4 @@ qc_sql_tables.py
 
 alter_final_tables.py
     - Update final sde table, Area_Rates_PID_AAN, and table in geodatabase to update service
-        - Service: https://gisapp-int-qa.halifax.ca/hrm/rest/services/Area_Rates/Area_Rate_Overlay_Result/MapServer/1
-
-TODO:
-- Remove intermediate tables from SDE
-
+        - Service: https://gis-web-int-qa.halifax.ca/hrm/rest/services/Area_Rates/Area_Rate_Overlay_Result/MapServer/1
