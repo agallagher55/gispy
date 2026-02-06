@@ -39,8 +39,8 @@ arcpy.SetLogHistory(False)
 log_dir = os.getcwd()
 
 # File handler
-logFile = log_dir + "\\script_logs.log"
-file_handler = logging.FileHandler(logFile)
+log_file = log_dir + "\\script_logs.log"
+file_handler = logging.FileHandler(log_file)
 
 # Console handler
 console_handler = logging.StreamHandler()
@@ -191,7 +191,6 @@ def data_check(new_parcels: str):
     new_parcels_row_count = int(arcpy.GetCount_management(new_parcels)[0])
     current_parcels_row_count = int(arcpy.GetCount_management(sde_parcels)[0])
 
-    # TODO: Log this;
     logger.info(f"\tRow count for NEW parcels: {new_parcels_row_count}")
     logger.info(f"\tRow count for SDE parcels: {current_parcels_row_count}")
 
@@ -336,29 +335,6 @@ def prepare_prov_shapefiles(feature_info: dict):
         NAD83_SHP_Parcel_Polygon,
         select_parcel_line
     ]
-
-    def add_and_calculate_fields(feature):
-        """
-        Add and calculate specified fields for a given feature.
-        """
-
-        # Define a dictionary for fields with their properties and calculation values
-        fields_dict = {
-            "FCODE": {"type": "TEXT", "length": 12, "calculation": "!DXF_LAYER!"},
-            "SOURCE": {"type": "TEXT", "length": 12, "calculation": "\"LIC-PROPMAP\""},
-            "SACC": {"type": "TEXT", "length": 2, "calculation": "\"DG\""},
-            "SDATE": {"type": "DATE",
-                      "calculation": f"datetime({datetime.now().strftime('%Y,%m,%d,%H,%M,%S')})"},
-            "OPERATOR": {"type": "TEXT", "length": 8, "calculation": "\"NSGC\""}
-        }
-
-        for field, properties in fields_dict.items():
-            logger.info(f'Adding {field} field to {feature}')
-            arcpy.AddField_management(feature, field, properties["type"], "", "", properties.get("length", ""), "",
-                                      "NULLABLE", "NON_REQUIRED")
-
-            logger.info(f'\tCalculating {field} field on {feature}')
-            arcpy.CalculateField_management(feature, field, properties["calculation"], "PYTHON_9.3", "")
 
     logger.info("Adding fields...")
     for feature in add_field_features:
