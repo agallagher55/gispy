@@ -10,6 +10,10 @@ import pandas as pd
 from datetime import datetime
 from configparser import ConfigParser
 
+# TODO: BUG - metadata module does not exist in this repository. This import will
+#  cause an ImportError unless the module exists elsewhere on sys.path in the
+#  production environment. Either add metadata.py to this repo, or guard the import
+#  with a try/except and skip the metadata update step if unavailable.
 from metadata import (
     get_sde_metadata,
     update_metadata,
@@ -287,6 +291,16 @@ def update_parcel_pt(rw_workspace, local_gdb):
     )
     logger.debug(arcpy.GetMessages())
 
+    # TODO: BUG - Single-point feature is truncated above but never reloaded.
+    #  lnd_parcel_point_single_sde_rw is left empty after truncation.
+    #  Fix: add an Append call for the single-point feature, e.g.:
+    #    logger.info(f"Loading {lnd_parcel_point_single_sde_rw}...")
+    #    arcpy.Append_management(
+    #        inputs=local_parcel_pt_single,
+    #        target=lnd_parcel_point_single_sde_rw,
+    #        schema_type="NO_TEST",
+    #    )
+
 
 def backup_and_trunc_parcel_point(workspace: str = r"C:\Workspace\Parcel_Load\Scratch") -> str:
     """
@@ -450,6 +464,16 @@ def load_linns_pidmstrs(dbf_pidmstrs: str, sde_pidmstrs: str):
 
     logger.info("Check to make sure area field values are not null")
 
+    # TODO: BUG - Two issues with the area validation below:
+    #  1) num_area_null is computed but never used - it should be checked instead of
+    #     or in addition to the all() check.
+    #  2) `all([x == 0.0 ...]) > 0` is misleading. all() returns True/False.
+    #     True > 0 is True (works accidentally), but the intent seems to be checking
+    #     a count. This only catches the case where EVERY area is 0.0.
+    #  Fix: use num_area_null for the check, e.g.:
+    #    num_area_null = len([x for x in sde_linns_area if x is None or x == 0.0])
+    #    if num_area_null == len(sde_linns_area):
+    #        raise ValueError(...)
     num_area_null = len([x for x in sde_linns_area if not x])  # This raised an error when it shouldn't have...?
     if all([x == 0.0 for x in sde_linns_area]) > 0:
         raise ValueError(f"Check {sde_pidmstrs} to ensure area field values transferred over.")
@@ -508,6 +532,13 @@ def truncate_load_linns_all_rw():
 
     logger.info(f"Truncating & loading '{LINNS_ALL_SDE_RW}'...")
 
+    # TODO: BUG - This guard checks the TARGET table (LINNS_ALL_SDE_RW) for rows, but
+    #  the error message says "backup". This is a truncate-and-load operation, not a
+    #  backup check. If this table was already truncated (e.g., from a prior partial run),
+    #  this guard will block the reload with a misleading error.
+    #  Fix: either (a) check the SOURCE table (LINNS_ALL_STAGE_RW) for rows instead,
+    #  or (b) remove the guard entirely since we're about to truncate and reload anyway.
+    #  Also update the inline comment which references "LND_PARCEL_POINT_OLD" - wrong table.
     # Make sure backup has rows
     row_count = int(arcpy.GetCount_management(LINNS_ALL_SDE_RW)[0])
     logger.info(f"Current row count of {LINNS_ALL_SDE_RW}: {row_count}")
@@ -571,6 +602,10 @@ def load_pidmstrs_ro():
     # Make sure Area field in RO gets updated
     area_field = [x for x in pid_mstrs_fields if x.upper().endswith("AREA")][0]
     area_values = [row[0] for row in arcpy.da.SearchCursor(LINNS_PIDMSTRS_SDE_RO, area_field)]
+    # TODO: BUG - Area values from the database are numeric (float), not empty strings.
+    #  Comparing floats to "" will never be True, so this validation never triggers.
+    #  Fix: check for None or 0.0 instead, e.g.:
+    #    if all(x is None or x == 0.0 for x in area_values):
     if all([x == "" for x in area_values]):
         # Truncate LINNS_PIDMSTRS_SDE_RO and re-load/append
         raise ValueError(f"It looks like the area field in {LINNS_PIDMSTRS_SDE_RO} did not get updated!")
@@ -588,6 +623,11 @@ def load_linns_all():
     row_count = int(arcpy.GetCount_management(LINNS_ALL_SDE_RO)[0])
     logger.info(f"RO row count: {row_count}")
 
+    # TODO: BUG - Same issue as truncate_load_linns_all_rw(). This checks the RO TARGET
+    #  table for rows, but should check the RW SOURCE (LINNS_ALL_SDE_RW). If the RO table
+    #  was already truncated in a prior partial run, this blocks the reload with a
+    #  misleading "backup" error. The inline comment also references wrong table name.
+    #  Fix: check LINNS_ALL_SDE_RW (source) for rows, or remove the guard.
     # Make sure backup has rows
     if row_count > 0:
         # Truncate the feature class LND_PARCEL_POINT_OLD in SDE RW.
