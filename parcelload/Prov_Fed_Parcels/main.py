@@ -50,6 +50,10 @@ def enable_sde_edits(function):
 
         result = function(*args, **kwargs)
 
+        # TODO: BUG - This should be edit.stopOperation(), not edit.startOperation().
+        #  Calling startOperation() twice without stopping leaves the edit session in
+        #  an inconsistent state and risks data corruption in LND_PARCEL_GOVOWN_LOOKUP.
+        #  Fix: change the line below to edit.stopOperation()
         edit.startOperation()
         edit.stopEditing(True)
 

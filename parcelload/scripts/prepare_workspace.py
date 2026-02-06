@@ -269,6 +269,12 @@ def query_prov_shapefiles(workspace=PARCEL_LOAD_DIR):
 
 
 def prepare_prov_shapefiles(feature_info: dict):
+    # TODO: BUG - NAD83_SHP_Parcel_Line and NAD83_SHP_Parcel_Polygon are referenced
+    #  inside this function (lines 319, 320, 329, 335, 375-380) but are only defined
+    #  in the __main__ block (lines 393-395). This will raise NameError if called from
+    #  anywhere other than __main__. Fix: pass these as parameters or extract their
+    #  paths from the feature_info dict, e.g.:
+    #    def prepare_prov_shapefiles(feature_info, nad83_parcel_line, nad83_parcel_polygon):
 
     """
     CUSTOM PROJECTION FILE NEEDS TO BE AVAILABLE ON SERVER WHERE SCRIPT IS RUN
