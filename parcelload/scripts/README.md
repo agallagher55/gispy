@@ -54,12 +54,14 @@ python main.py
 
 `main.py` performs the following high-level actions:
 
-1. **Back up existing parcel point data** and truncate old-point target table.
-2. **Truncate and load LINNS tables** using the downloaded DBF files.
-3. **Load LINNS PIDMSTRS** (special handling from `pidmstrs.dbf`).
-4. **Truncate and load RW spatial parcel layers** (`point/line/polygon/ghosted line`).
-5. **Regenerate parcel point outputs** from polygon geometry.
-6. **Run SQL post-processing** scripts for PID reporting and fcode/batch updates.
+1. **Run preflight checks** to validate required DBFs/shapefiles, SQL files, and ArcGIS datasets/connections.
+2. **Back up existing parcel point data** and truncate old-point target table.
+3. **Truncate and load LINNS tables** using the downloaded DBF files.
+4. **Load LINNS PIDMSTRS** (special handling from `pidmstrs.dbf`).
+5. **Truncate and load RW spatial parcel layers** (`point/line/polygon/ghosted line`).
+6. **Regenerate parcel point outputs** from polygon geometry.
+7. **Run SQL post-processing** scripts for PID reporting and fcode/batch updates.
+8. **Write `qa_summary.csv`** with final row counts and key checks.
 
 ### 4) Manual validation and downstream actions
 
@@ -67,8 +69,9 @@ After script completion:
 
 1. Review script logs (`script_logs.log`) for errors/warnings.
 2. Review generated new PID report output.
-3. Confirm expected record counts and spot-check key layers/tables.
-4. Run any required RO sync/append procedures if not already automated in your operational runbook.
+3. Review `qa_summary.csv` for final counts/check statuses.
+4. Confirm expected record counts and spot-check key layers/tables.
+5. Run any required RO sync/append procedures if not already automated in your operational runbook.
 
 ---
 
@@ -83,6 +86,7 @@ Use this quick checklist each run:
 - [ ] Run `python prepare_workspace.py`
 - [ ] Run `python main.py`
 - [ ] Review logs and outputs
+- [ ] Review `qa_summary.csv`
 - [ ] Perform post-run QA checks
 
 ---

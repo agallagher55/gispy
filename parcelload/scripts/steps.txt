@@ -2,5 +2,5 @@
 2. Get ZIP password from email and extract files into PARCEL_LOAD_DIR (see ../config.ini)
 3. Update PARCEL_DATA_EXTRACT location in ../config.ini (if required)
 4. Run prepare_workspace.py
-5. Run main.py
-6. Review script_logs.log and output reports
+5. Run main.py (includes preflight checks)
+6. Review script_logs.log, new PID output, and qa_summary.csv
