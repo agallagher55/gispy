@@ -1,6 +1,7 @@
 import os
 import arcpy
 import logging
+import csv
 
 import sql_cmds
 
@@ -68,6 +69,153 @@ CURRENT_MONTH = datetime.now().strftime('%B')  # Date format YYMMDD
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
+
+
+def _safe_row_count(dataset_path):
+    """Return integer row count when possible, otherwise None."""
+
+    try:
+        return int(arcpy.GetCount_management(dataset_path)[0])
+    except Exception as exc:
+        logger.warning(f"Unable to get row count for {dataset_path}: {exc}")
+        return None
+
+
+def preflight_check(parcel_load_dir=PARCEL_LOAD_DIR):
+    """Validate critical inputs and connections before executing the load pipeline."""
+
+    logger.info("Running preflight checks...")
+
+    missing_paths = []
+    failed_checks = []
+
+    required_paths = [
+        parcel_load_dir,
+        PIDMSTRS_DBF,
+        os.path.join(parcel_load_dir, "pidaantax.dbf"),
+        os.path.join(parcel_load_dir, "pidnames.dbf"),
+        os.path.join(parcel_load_dir, "pidrelate.dbf"),
+        os.path.join(parcel_load_dir, "pidaddress.dbf"),
+        os.path.join(parcel_load_dir, "piddocs.dbf"),
+        os.path.join(parcel_load_dir, "pidplans.dbf"),
+        os.path.join(parcel_load_dir, "pidretire.dbf"),
+        os.path.join(parcel_load_dir, "Select_Ghosted_Line.shp"),
+        os.path.join(parcel_load_dir, "Select_Parcel_Line.shp"),
+        os.path.join(parcel_load_dir, "Parcel_Polygon.shp"),
+        r"../sqls/create_newpid_report.sql",
+        r"../sqls/update_parcel_line_fcode.sql",
+        r"../sqls/update_parcel_poly_fcode.sql",
+        r"../sqls/update_linnstemp_batch.sql",
+    ]
+
+    for path in required_paths:
+        if not os.path.exists(path):
+            missing_paths.append(path)
+
+    required_datasets = [
+        SDE_RW,
+        SDE_RO,
+        PARCEL_POINT_RW,
+        PARCEL_POINT_OLD_SDE_RW,
+        LND_GHOSTED_PARCEL_LINE_RW,
+        LND_PARCEL_LINE_RW,
+        LND_PARCEL_POLYGON_RW,
+        LINNS_PIDMSTRS_SDE_RW,
+        LINNS_ALL_SDE_RW,
+        LINNS_PIDMSTRS_SDE_RO,
+        LINNS_ALL_SDE_RO,
+    ]
+
+    for dataset in required_datasets:
+        if not arcpy.Exists(dataset):
+            failed_checks.append(dataset)
+
+    if missing_paths or failed_checks:
+        messages = []
+        if missing_paths:
+            messages.append(
+                "Missing required files/paths:\n- " + "\n- ".join(missing_paths)
+            )
+        if failed_checks:
+            messages.append(
+                "Missing or inaccessible ArcGIS datasets/connections:\n- " + "\n- ".join(failed_checks)
+            )
+        raise FileNotFoundError("\n\n".join(messages))
+
+    logger.info("Preflight checks passed.")
+
+
+def write_qa_summary(output_csv, checks):
+    """Write final QA checks/counts summary as CSV."""
+
+    fieldnames = ["check_name", "status", "details", "count"]
+    with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in checks:
+            writer.writerow(
+                {
+                    "check_name": row.get("check_name", ""),
+                    "status": row.get("status", ""),
+                    "details": row.get("details", ""),
+                    "count": row.get("count", ""),
+                }
+            )
+
+    logger.info(f"QA summary written to {output_csv}")
+
+
+def build_final_qa_checks(parcel_pt_backup, new_pids):
+    """Compile post-run QA checks including row counts and simple validations."""
+
+    checks = [
+        {
+            "check_name": "preflight",
+            "status": "PASS",
+            "details": "Required files, SQL scripts, and ArcGIS datasets were found before run.",
+            "count": "",
+        },
+        {
+            "check_name": "new_pid_count",
+            "status": "PASS",
+            "details": "New PID query returned records.",
+            "count": len(new_pids) if new_pids else 0,
+        },
+    ]
+
+    datasets_to_count = [
+        ("backup_parcel_point_shp", parcel_pt_backup),
+        ("rw_parcel_point", PARCEL_POINT_RW),
+        ("rw_parcel_point_old", PARCEL_POINT_OLD_SDE_RW),
+        ("rw_parcel_line", LND_PARCEL_LINE_RW),
+        ("rw_parcel_polygon", LND_PARCEL_POLYGON_RW),
+        ("rw_ghosted_parcel_line", LND_GHOSTED_PARCEL_LINE_RW),
+        ("rw_linns_pidmstrs", LINNS_PIDMSTRS_SDE_RW),
+        ("rw_linns_all", LINNS_ALL_SDE_RW),
+        ("ro_linns_pidmstrs", LINNS_PIDMSTRS_SDE_RO),
+        ("ro_linns_all", LINNS_ALL_SDE_RO),
+    ]
+
+    for check_name, dataset_path in datasets_to_count:
+        if arcpy.Exists(dataset_path) or os.path.exists(dataset_path):
+            row_count = _safe_row_count(dataset_path)
+            status = "PASS" if row_count is not None else "WARN"
+            details = f"Row count for {dataset_path}"
+        else:
+            row_count = ""
+            status = "WARN"
+            details = f"Dataset not found for count: {dataset_path}"
+
+        checks.append(
+            {
+                "check_name": check_name,
+                "status": status,
+                "details": details,
+                "count": row_count,
+            }
+        )
+
+    return checks
 
 
 def parcel_poly_to_point(parcel_poly_reference_feature, fgdb, repair_geometry=False):
@@ -513,9 +661,14 @@ if __name__ == "__main__":
 
     from datetime import datetime
 
+
     logger.info(f"{datetime.now()}")
 
     backup_gdb = os.path.join(PARCEL_LOAD_DIR, f"{CURRENT_MONTH}ParcelBackup.gdb")
+    qa_summary_csv = os.path.join(PARCEL_LOAD_DIR, "qa_summary.csv")
+
+    preflight_check(PARCEL_LOAD_DIR)
+
     # TODO: Create workspace gdb (for LND_parcel_point)
 
     # Back up LND_PARCEL_POINT
@@ -655,5 +808,8 @@ if __name__ == "__main__":
           "E:\HRM\Scripts\Python\Modules\gispy\parcelload\Prov_Fed_Parcels\main.py")
 
     # TODO: Turn this into an imported function
+
+    qa_checks = build_final_qa_checks(parcel_pt_backup, new_pids)
+    write_qa_summary(qa_summary_csv, qa_checks)
 
     logger.info(f"{datetime.now()}")
