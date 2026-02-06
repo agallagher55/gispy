@@ -14,7 +14,7 @@ from metadata import (
     update_metadata,
 )
 
-from hrmutils.HRMutils import send_mail
+# from HRMutils import send_mail
 
 config = ConfigParser()
 config.read("../config.ini")
@@ -261,7 +261,7 @@ def load_linns_pidmstrs(dbf_pidmstrs: str, sde_pidmstrs: str):
 
     logger.info(f"Loading SDE LINNS table with dbf pidmstrs table, {dbf_pidmstrs}...")
 
-    linns_area_field = 'GISRW01.SDEADM.LINNS_PIDMSTRS.AREA'
+    linns_area_field = 'SDEADM.LINNS_PIDMSTRS.AREA'
 
     # Feature to dataframe, dataframe to dictionary
     fields = [x.name for x in arcpy.ListFields(dbf_pidmstrs) if x.name not in ("OID", "PIDS")]
@@ -540,7 +540,7 @@ if __name__ == "__main__":
     # update_parcel_poly_fcode_sql = r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\SQL Server\update_parcel_poly_fcode.sql"
     # update_linnstemp_batch_sql = r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\SQL Server\update_linnstemp_batch.sql"
 
-    new_pidreport_sql = r"../sqls/create_newpid_report.sql"  # @create_newpid_report.sql  # TODO: more recenly modified - confirm this is the one to use
+    new_pidreport_sql = r"../sqls/create_newpid_report.sql"  # @create_newpid_report.sql  # TODO: more recently modified - confirm this is the one to use
 
     update_parcel_line_fcode_sql = r"../sqls/update_parcel_line_fcode.sql"
     update_parcel_poly_fcode_sql = r"../sqls/update_parcel_poly_fcode.sql"
@@ -555,6 +555,8 @@ if __name__ == "__main__":
     )
     os.startfile(r"T:\work\giss\tools\Parcel Load\Parcel Load sqls")
 
+    # TODO: Create script to review lst, send email if error
+
     # TODO: Send email - setup email function
     recipients = [
         # 'gerriom@halifax.ca',
@@ -563,24 +565,25 @@ if __name__ == "__main__":
         # 'caversj@halifax.ca',
         # 'ke59119@halifax.ca',
         # 'craign@halifax.ca',
+        # 'so36497@halifax.ca',
         'gallaga@halifax.ca'
     ]
-    send_mail(
-        to=recipients,
-        subject="New Parcels",
-        text="""
-Hi All,
-
-Attached is the new Parcels list.
-
-Take care,
-Alex Gallagher
-        """,
-        # cc="potterm@halifax.ca",
-        sender=config.get('EMAIL', 'sender'),
-        files=[new_pid_report,],
-        server=config.get('EMAIL', 'server')
-    )
+#     send_mail(
+#         to=recipients,
+#         subject="New Parcels",
+#         text="""
+# Hi All,
+#
+# Attached is the new Parcels list.
+#
+# Take care,
+# Alex Gallagher
+#         """,
+#         # cc="potterm@halifax.ca",
+#         # sender=config.get('EMAIL', 'sender'),
+#         files=[new_pid_report,],
+#         # server=config.get('EMAIL', 'server')
+#     )
 
     sql_cmds.execute_sql(update_parcel_line_fcode_sql, SDE_RW)
     sql_cmds.execute_sql(update_parcel_poly_fcode_sql, SDE_RW)
