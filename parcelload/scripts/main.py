@@ -648,6 +648,60 @@ def load_linns_all():
     )
 
 
+def optimize_sde_database(sde_conn):
+    """
+    Run post-load maintenance on an SDE geodatabase: Analyze, Compress, Rebuild Indexes, Analyze.
+
+    This consolidates versioned edit state lineages (Compress), defragments attribute and spatial
+    indexes (RebuildIndexes), and updates SQL Server query-optimizer statistics (AnalyzeDatasets).
+
+    :param sde_conn: Path to an .sde connection file with admin/sdeadm privileges.
+    """
+
+    logger.info(f"Starting SDE database optimization on {sde_conn}...")
+
+    # 1. Analyze — give the optimizer current stats before compress
+    logger.info("Analyze Datasets (pre-compress)...")
+    arcpy.AnalyzeDatasets_management(
+        input_database=sde_conn,
+        include_system="SYSTEM",
+        in_datasets="",
+        analyze_base="ANALYZE_BASE",
+        analyze_delta="ANALYZE_DELTA",
+        analyze_archive="ANALYZE_ARCHIVE",
+    )
+    logger.debug(arcpy.GetMessages())
+
+    # 2. Compress — consolidate delta tables and remove orphaned states
+    logger.info("Compress...")
+    arcpy.Compress_management(in_workspace=sde_conn)
+    logger.debug(arcpy.GetMessages())
+
+    # 3. Rebuild Indexes — defragment attribute and spatial indexes
+    logger.info("Rebuild Indexes...")
+    arcpy.RebuildIndexes_management(
+        input_database=sde_conn,
+        include_system="SYSTEM",
+        in_datasets="",
+        delta_only="ALL",
+    )
+    logger.debug(arcpy.GetMessages())
+
+    # 4. Analyze — refresh stats after compress and reindex
+    logger.info("Analyze Datasets (post-compress)...")
+    arcpy.AnalyzeDatasets_management(
+        input_database=sde_conn,
+        include_system="SYSTEM",
+        in_datasets="",
+        analyze_base="ANALYZE_BASE",
+        analyze_delta="ANALYZE_DELTA",
+        analyze_archive="ANALYZE_ARCHIVE",
+    )
+    logger.debug(arcpy.GetMessages())
+
+    logger.info(f"SDE database optimization complete on {sde_conn}.")
+
+
 def trunc_load_spatial_ro_data_from_rw(sde_ro, sde_rw):
     """
     Truncates and appends features from the source to the target geodatabase.
@@ -841,7 +895,9 @@ if __name__ == "__main__":
     # •	On the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler
     input("On the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler.")
 
-    input("Run Analyze Compress Analyze on Server DC1-GIS-APP-P23.Current runs Saturdays @ 9am (until 10:30am)")
+    # Analyze, Compress, Rebuild Indexes, Analyze — on both RW and RO
+    optimize_sde_database(SDE_RW)
+    optimize_sde_database(SDE_RO)
 
     # Update GOV_OWN_VW
     input("Update GOV-Owned parcel layer - GOV_OWN_VW - Prov_Fed_Parcels: "
