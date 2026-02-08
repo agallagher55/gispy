@@ -67,6 +67,8 @@ PIDMSTRS_DBF = config.get("GIS_DATA", "PIDMSTRS_DBF")
 
 CURRENT_MONTH = datetime.now().strftime('%B')  # Date format YYMMDD
 
+SUMMARY_CSV = os.path.join(PARCEL_LOAD_DIR, "reports", f"summary_{CURRENT_MONTH}.csv")
+
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
@@ -76,6 +78,7 @@ def _safe_row_count(dataset_path):
 
     try:
         return int(arcpy.GetCount_management(dataset_path)[0])
+    
     except Exception as exc:
         logger.warning(f"Unable to get row count for {dataset_path}: {exc}")
         return None
@@ -703,7 +706,6 @@ if __name__ == "__main__":
     logger.info(f"{datetime.now()}")
 
     backup_gdb = os.path.join(PARCEL_LOAD_DIR, f"{CURRENT_MONTH}ParcelBackup.gdb")
-    qa_summary_csv = os.path.join(PARCEL_LOAD_DIR, "qa_summary.csv")
 
     preflight_check(PARCEL_LOAD_DIR)
 
@@ -848,6 +850,6 @@ if __name__ == "__main__":
     # TODO: Turn this into an imported function
 
     qa_checks = build_final_qa_checks(parcel_pt_backup, new_pids)
-    write_qa_summary(qa_summary_csv, qa_checks)
+    write_qa_summary(SUMMARY_CSV, qa_checks)
 
     logger.info(f"{datetime.now()}")
