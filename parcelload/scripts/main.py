@@ -7,7 +7,7 @@ import sql_cmds
 
 import pandas as pd
 
-from geometry_qa import (
+from analyze_geometry import (
     analyze_parcel_geometry_shift,
     write_geometry_shift_report,
 )
@@ -962,3 +962,4 @@ if __name__ == "__main__":
     write_qa_summary(SUMMARY_CSV, qa_checks)
 
     logger.info(f"{datetime.now()}")
+
