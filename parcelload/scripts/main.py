@@ -7,6 +7,11 @@ import sql_cmds
 
 import pandas as pd
 
+from geometry_qa import (
+    analyze_parcel_geometry_shift,
+    write_geometry_shift_report,
+)
+
 from datetime import datetime
 from configparser import ConfigParser
 
@@ -172,7 +177,7 @@ def write_qa_summary(output_csv, checks):
     logger.info(f"QA summary written to {output_csv}")
 
 
-def build_final_qa_checks(parcel_pt_backup, new_pids):
+def build_final_qa_checks(parcel_pt_backup, new_pids, geometry_shift_results=None):
     """Compile post-run QA checks including row counts and simple validations."""
 
     checks = [
@@ -189,6 +194,40 @@ def build_final_qa_checks(parcel_pt_backup, new_pids):
             "count": len(new_pids) if new_pids else 0,
         },
     ]
+
+    if geometry_shift_results:
+        summary = geometry_shift_results["summary"]
+        flagged_count = summary["flagged"]
+
+        checks.append(
+            {
+                "check_name": "geometry_shift_flagged",
+                "status": "WARN" if flagged_count > 0 else "PASS",
+                "details": (
+                    f"{flagged_count} parcels flagged "
+                    f"(threshold: {summary['distance_threshold_m']}m distance, "
+                    f"{summary['area_change_threshold_pct']}% area change). "
+                    f"{summary['flagged_shift']} shift, {summary['flagged_resize']} resize."
+                ),
+                "count": flagged_count,
+            }
+        )
+        checks.append(
+            {
+                "check_name": "geometry_shift_added_pids",
+                "status": "PASS",
+                "details": "PIDs present in new dataset but not in old.",
+                "count": summary["added"],
+            }
+        )
+        checks.append(
+            {
+                "check_name": "geometry_shift_removed_pids",
+                "status": "WARN" if summary["removed"] > 0 else "PASS",
+                "details": "PIDs present in old dataset but not in new.",
+                "count": summary["removed"],
+            }
+        )
 
     datasets_to_count = [
         ("backup_parcel_point_shp", parcel_pt_backup),
@@ -780,6 +819,20 @@ if __name__ == "__main__":
 
     update_parcel_pt(SDE_RW, backup_gdb)
 
+    # Geometry shift analysis: compare backup polygons to newly loaded polygons
+    old_parcel_polygon = os.path.join(backup_gdb, "LND_parcel_polygon")
+    new_parcel_polygon = os.path.join(PARCEL_LOAD_DIR, "Parcel_Polygon.shp")
+
+    geometry_shift_results = analyze_parcel_geometry_shift(
+        old_polygons=old_parcel_polygon,
+        new_polygons=new_parcel_polygon,
+    )
+
+    geometry_shift_csv = os.path.join(
+        PARCEL_LOAD_DIR, "reports", f"geometry_shift_{CURRENT_MONTH}.csv"
+    )
+    write_geometry_shift_report(geometry_shift_results, geometry_shift_csv)
+
     logger.info(f"{datetime.now()}Running SQL scripts...")
 
     # new_pidreport_sql = r"T:\work\giss\tools\Parcel Load\Parcel Load sqls\SQL Server\create_newpid_report.sql"  # @create_newpid_report.sql
@@ -905,7 +958,7 @@ if __name__ == "__main__":
 
     # TODO: Turn this into an imported function
 
-    qa_checks = build_final_qa_checks(parcel_pt_backup, new_pids)
+    qa_checks = build_final_qa_checks(parcel_pt_backup, new_pids, geometry_shift_results)
     write_qa_summary(SUMMARY_CSV, qa_checks)
 
     logger.info(f"{datetime.now()}")
