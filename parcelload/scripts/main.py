@@ -10,10 +10,6 @@ import pandas as pd
 from datetime import datetime
 from configparser import ConfigParser
 
-# TODO: BUG - metadata module does not exist in this repository. This import will
-#  cause an ImportError unless the module exists elsewhere on sys.path in the
-#  production environment. Either add metadata.py to this repo, or guard the import
-#  with a try/except and skip the metadata update step if unavailable.
 from metadata import (
     get_sde_metadata,
     update_metadata,
@@ -153,10 +149,14 @@ def write_qa_summary(output_csv, checks):
     """Write final QA checks/counts summary as CSV."""
 
     fieldnames = ["check_name", "status", "details", "count"]
+
     with open(output_csv, "w", newline="", encoding="utf-8") as csvfile:
+
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
+
         for row in checks:
+
             writer.writerow(
                 {
                     "check_name": row.get("check_name", ""),
@@ -223,14 +223,12 @@ def build_final_qa_checks(parcel_pt_backup, new_pids):
 
 
 def parcel_poly_to_point(parcel_poly_reference_feature, fgdb, repair_geometry=False):
-
     logging.info("Running parcel_poly_to_point...")
 
     feature_to_point_fc = os.path.join(fgdb, f"hrm_parcel_polygon_points")
     point_multi_feature = os.path.join(fgdb, f"hrm_parcel_polygon_points_multi")
 
     if repair_geometry:
-
         logger.info("Repair Geometry...")
         arcpy.RepairGeometry_management(
             in_features=parcel_poly_reference_feature,
@@ -276,6 +274,7 @@ def update_parcel_pt(rw_workspace, local_gdb):
 
     # Delete rows in RW feature
     for sde_feature in lnd_parcel_point_multi_sde_rw, lnd_parcel_point_single_sde_rw:
+
         logger.info(f"Truncating {sde_feature}...")
         arcpy.TruncateTable_management(sde_feature)
         logger.debug(arcpy.GetMessages())
@@ -291,15 +290,13 @@ def update_parcel_pt(rw_workspace, local_gdb):
     )
     logger.debug(arcpy.GetMessages())
 
-    # TODO: BUG - Single-point feature is truncated above but never reloaded.
-    #  lnd_parcel_point_single_sde_rw is left empty after truncation.
     #  Fix: add an Append call for the single-point feature, e.g.:
-    #    logger.info(f"Loading {lnd_parcel_point_single_sde_rw}...")
-    #    arcpy.Append_management(
-    #        inputs=local_parcel_pt_single,
-    #        target=lnd_parcel_point_single_sde_rw,
-    #        schema_type="NO_TEST",
-    #    )
+    logger.info(f"Loading {lnd_parcel_point_single_sde_rw}...")
+    arcpy.Append_management(
+       inputs=local_parcel_pt_single,
+       target=lnd_parcel_point_single_sde_rw,
+       schema_type="NO_TEST",
+    )
 
 
 def backup_and_trunc_parcel_point(workspace: str = r"C:\Workspace\Parcel_Load\Scratch") -> str:
@@ -475,6 +472,7 @@ def load_linns_pidmstrs(dbf_pidmstrs: str, sde_pidmstrs: str):
     #    if num_area_null == len(sde_linns_area):
     #        raise ValueError(...)
     num_area_null = len([x for x in sde_linns_area if not x])  # This raised an error when it shouldn't have...?
+
     if all([x == 0.0 for x in sde_linns_area]) > 0:
         raise ValueError(f"Check {sde_pidmstrs} to ensure area field values transferred over.")
 
@@ -539,6 +537,7 @@ def truncate_load_linns_all_rw():
     #  Fix: either (a) check the SOURCE table (LINNS_ALL_STAGE_RW) for rows instead,
     #  or (b) remove the guard entirely since we're about to truncate and reload anyway.
     #  Also update the inline comment which references "LND_PARCEL_POINT_OLD" - wrong table.
+
     # Make sure backup has rows
     row_count = int(arcpy.GetCount_management(LINNS_ALL_SDE_RW)[0])
     logger.info(f"Current row count of {LINNS_ALL_SDE_RW}: {row_count}")
@@ -652,7 +651,7 @@ def trunc_load_spatial_ro_data_from_rw(sde_ro, sde_rw):
         Features: LND_parcel_point_single, LND_parcel_point, LND_parcel_line, LND_parcel_polygon
     :param sde_ro:
     :param sde_rw:
-    :return: 
+    :return:
     """
 
     logger.info("Truncating & loading RO...")
@@ -700,7 +699,6 @@ if __name__ == "__main__":
     # TODO: Add logging
 
     from datetime import datetime
-
 
     logger.info(f"{datetime.now()}")
 
@@ -761,22 +759,22 @@ if __name__ == "__main__":
         # 'so36497@halifax.ca',
         'gallaga@halifax.ca'
     ]
-#     send_mail(
-#         to=recipients,
-#         subject="New Parcels",
-#         text="""
-# Hi All,
-#
-# Attached is the new Parcels list.
-#
-# Take care,
-# Alex Gallagher
-#         """,
-#         # cc="potterm@halifax.ca",
-#         # sender=config.get('EMAIL', 'sender'),
-#         files=[new_pid_report,],
-#         # server=config.get('EMAIL', 'server')
-#     )
+    #     send_mail(
+    #         to=recipients,
+    #         subject="New Parcels",
+    #         text="""
+    # Hi All,
+    #
+    # Attached is the new Parcels list.
+    #
+    # Take care,
+    # Alex Gallagher
+    #         """,
+    #         # cc="potterm@halifax.ca",
+    #         # sender=config.get('EMAIL', 'sender'),
+    #         files=[new_pid_report,],
+    #         # server=config.get('EMAIL', 'server')
+    #     )
 
     sql_cmds.execute_sql(update_parcel_line_fcode_sql, SDE_RW)
     sql_cmds.execute_sql(update_parcel_poly_fcode_sql, SDE_RW)
@@ -840,7 +838,7 @@ if __name__ == "__main__":
     # Cache Data Update
     # •	On the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler
     input("On the Caching Server DC1-GIS-APP-P21, run the Cache_Data_Update task in Task Scheduler.")
-    
+
     input("Run Analyze Compress Analyze on Server DC1-GIS-APP-P23.Current runs Saturdays @ 9am (until 10:30am)")
 
     # Update GOV_OWN_VW
