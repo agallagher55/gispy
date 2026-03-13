@@ -107,10 +107,9 @@ if __name__ == "__main__":
             for db in dbs:
                 logger.info(f"DATABASE: {db}")
 
-                for update_feature in new_field_info:
+                for feature_key in new_field_info:
 
-                    if db.endswith(".gdb"):
-                        update_feature = update_feature.replace("SDEADM.", "")
+                    update_feature = feature_key.replace("SDEADM.", "") if db.endswith(".gdb") else feature_key
 
                     logger.info(f"Feature: {update_feature}")
 
@@ -118,6 +117,9 @@ if __name__ == "__main__":
 
                         # Check if feature exists
                         if not arcpy.Exists(update_feature):
+                            if db.endswith(".gdb"):
+                                logger.warning(f"\tFeature, '{update_feature}', does not exist in {db}. Skipping...")
+                                continue
                             raise ValueError(f"\tFeature, '{update_feature}', does not exist.")
 
                         desc = arcpy.Describe(update_feature)
@@ -127,7 +129,7 @@ if __name__ == "__main__":
 
                         # TODO: Stop services
 
-                        update_feature_new_field_info = new_field_info[update_feature]
+                        update_feature_new_field_info = new_field_info[feature_key]
 
                         for field in update_feature_new_field_info:
                             logger.info(f"Field to add: '{field}'")
