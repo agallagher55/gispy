@@ -28,8 +28,9 @@ WITH
 ),
 	ASSESSMENT_LOOKUP AS  -- Lookup of Taxable Assessments from Hansen
 	(
-		SELECT DISTINCT ACCTNO, ASDTAXABLE
+		SELECT ACCTNO, MAX(ASDTAXABLE) AS ASDTAXABLE
 		FROM HANSENDATA.ACCTASR
+		GROUP BY ACCTNO
 	),
 
 	FULL_LINNS_LIST AS -- full list of PIDS based on [sdeadm].[LND_parcel_polygon]
