@@ -3,8 +3,6 @@ import os
 
 import arcpy
 
-from typing import Union
-
 arcpy.env.overwriteOutput = True
 
 EDITOR_TRACKING_FIELD_INFO = {
@@ -32,8 +30,10 @@ EDITOR_TRACKING_FIELD_INFO = {
 
 
 def arcpy_messages(func):
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+
         try:
             result = func(*args, **kwargs)
             messages = arcpy.GetMessages()
@@ -52,27 +52,20 @@ def arcpy_messages(func):
 
 
 class Feature:
-    def __init__(self, workspace, feature_name: str, geometry_type, feature_dataset: str = None, spatial_reference=None,
-                 alias: str = "#"):
+    def __init__(self, workspace, feature_name: str, geometry_type, spatial_reference=None, alias: str = "#"):
         self.workspace = workspace
-        self.feature_dataset = feature_dataset
         self.feature_name = feature_name
         self.geometry_type = geometry_type
         self.spatial_reference = spatial_reference
         self.alias = alias
 
-        if self.feature_dataset:
-            self.feature = os.path.join(self.workspace, self.feature_dataset, self.feature_name)
-
-        else:
-            self.feature = os.path.join(self.workspace, self.feature_name)
-
+        self.feature = os.path.join(self.workspace, self.feature_name)
         self.fields = set()
 
         self.create_feature()
         self.desc = arcpy.Describe(self.feature)
 
-    # @arcpy_messages
+    @arcpy_messages
     def create_feature(self):
         print(f"\nCreating {self.geometry_type or ''} feature '{self.feature_name}'...")
 
@@ -83,7 +76,7 @@ class Feature:
             return self.feature
 
         # Check if feature is a table
-        if self.geometry_type.upper() == "ENTERPRISE GEODATABASE TABLE":
+        if self.geometry_type.upper() in ("ENTERPRISE GEODATABASE TABLE", "NOT APPLICABLE"):
             arcpy.CreateTable_management(
                 out_path=self.workspace,
                 out_name=self.feature_name,
@@ -101,6 +94,7 @@ class Feature:
                 spatial_reference=self.spatial_reference,
                 out_alias=self.alias
             )
+            print(arcpy.GetMessages())
 
         self.fields = {x.name for x in arcpy.ListFields(self.feature)}
         print(f"\t{self.geometry_type} feature Created.")
@@ -108,19 +102,17 @@ class Feature:
         return self.feature
 
     @arcpy_messages
-    def add_field(self, field_name: str, field_type: str, length: Union[int, str], alias: str, domain_name: str,
-                  precision: str = "#", scale: str = "#"):
+    def add_field(self, field_name: str, field_type: str, length: int, alias: str, domain_name: str, precision="#"):
         """
         Although the Field object's type property values are not an exact match for the keywords used by the Add Field
         tool's field_type parameter, all of the Field object's type values can be used as input to this parameter.
         The different field types are mapped as follows: Integer to LONG, String to TEXT, and SmallInteger to SHORT.
 
-           :param precision: 
-           :param scale: 
            :param field_name:
            :param field_type:
            :param length:
            :param alias:
+           :param nullable:
            :param domain_name:
            :return:
            """
@@ -130,8 +122,8 @@ class Feature:
             print(f"\t'{field_name}' already exists in {self.feature_name}")
             return True
 
-        field_required = "NON_REQUIRED"
-        valid_types = ["TEXT", "FLOAT", "DOUBLE", "SHORT", "LONG", "DATE"]
+        FIELD_REQUIRED = "NON_REQUIRED"
+        valid_types = ["TEXT", "FLOAT", "DOUBLE", "SHORT", "LONG", "DATE", "DATEONLY", "TIMEONLY"]
 
         if field_type:
             field_type = field_type.upper()
@@ -143,21 +135,25 @@ class Feature:
             print(f"Field Type: {field_type}")
             raise ValueError(f"Field type: '{field_type}' does not appear to be a valid field type!")
 
+        # if field_type == "SHORT":
+        #     field_precision = input("Please provide field precision: ")
+        #
+        # else:
+        #     field_precision = "#"  # int
+
         arcpy.AddField_management(
             in_table=self.feature,
-            field_name=field_name,  # Field Name
+            field_name=field_name.strip(),  # Field Name
             field_type=field_type,  # Field Type
             field_precision=precision,
-            field_scale=scale,
+            field_scale="#",
             field_length=length,  # Field Length (# of characters)
-            field_alias=alias,  # Alias
+            field_alias=alias.strip(),  # Alias
             field_is_nullable="NULLABLE",  # NULLABLE
-            field_is_required=field_required,  #
-            field_domain=domain_name  # Domain
+            field_is_required=FIELD_REQUIRED,  #
+            field_domain=domain_name.strip()  # Domain
         )
         self.fields.add(field_name)
-
-        return field_name
 
     @arcpy_messages
     def change_privileges(self, user: str, view: str = "#", edit: str = "#"):
@@ -183,15 +179,13 @@ class Feature:
         :return:
         """
 
-        print(f"\nChanging privileges to dataset '{self.feature}'...")
+        print(f"\nUpdating privileges to dataset '{self.feature}'...")
         arcpy.ChangePrivileges_management(
             in_dataset=self.feature,
             user=user,
             View=view,
             Edit=edit
         )
-        # arcpy.ChangePrivileges_management(GDB_Name + "\\" + RC_FC, "PUBLIC", "GRANT", "#")
-        # arcpy.ChangePrivileges_management(GDB_Name + "\\" + RC_FC, "TRAFFIC_EDITOR", "GRANT", "GRANT")
         print("\tPrivileges changed.")
 
     @arcpy_messages
@@ -215,7 +209,7 @@ class Feature:
 
     @arcpy_messages
     def add_editor_tracking_fields(self, field_info=EDITOR_TRACKING_FIELD_INFO):
-        """
+        """    
         The enable_editor_tracking function enables editor tracking on a feature class.
 
         :param creator_field: str: Specify the field that will store the name of the user who created a record
@@ -261,8 +255,8 @@ class Feature:
         )
 
     @arcpy_messages
-    def add_gloablids(self):
-        print(f"\nAdding GloablIDs to '{self.feature}'...")
+    def add_globalids(self):
+        print(f"\nAdding GlobalIDs to '{self.feature}'...")
 
         if "GlobalID" in self.fields:
             print(f"{self.feature} already has a GlobalID field.")
@@ -290,6 +284,17 @@ class Feature:
             print(f"Did not find {field} in {self.feature_name}")
 
     @arcpy_messages
+    def enable_archiving(self):
+        print(f"\nEnabling archiving on '{self.feature}'...")
+
+        if self.desc.isArchived:
+            print(f"\t'{self.feature}' already has archiving enabled.")
+            return
+
+        arcpy.EnableArchiving_management(self.feature)
+        print("\tArchiving enabled.")
+
+    @arcpy_messages
     def assign_domain(self, field_name, domain_name, subtypes="#"):
         print(f"\nAssigning domain '{domain_name}' to field '{field_name}'...")
 
@@ -310,4 +315,11 @@ class Table(Feature):
         self.geometry_type = None
         self.spatial_reference = None
 
-        super(Table, self).__init__(workspace, feature_name, self.geometry_type, self.spatial_reference, alias)
+        super(Table, self).__init__(
+            workspace=workspace,
+            feature_name=feature_name,
+            geometry_type=self.geometry_type,
+            feature_dataset=None,
+            spatial_reference=self.spatial_reference,
+            alias=alias,
+        )
