@@ -1,0 +1,120 @@
+# task.txt — GIS Script Task Description
+#
+# How to use:
+#   1. Fill in the fields below for your current task.
+#   2. Tell Claude Code: "execute task.txt"
+#   3. Claude reads this file and generates the ready-to-run script.
+#   4. Review the generated script, then run it.
+#
+# Delete unused sections. See examples at the bottom of this file.
+# ─────────────────────────────────────────────────────────────────
+
+operation:      # update_field_schema | add_fields | delete_fields | set_field_defaults
+                # assign_domains | change_domain_values | new_domain
+                # new_feature | assign_editor_tracking | retire_feature
+
+feature:        # SDEADM.SCHEMA_tablename  (leave blank for domain-only ops)
+
+databases:      # [dev_rw]   — promote by adding: [dev_rw, qa_rw, prod_rw]
+
+notes:          # Jira ticket / brief reason for the change
+
+
+# ── OPERATION-SPECIFIC FIELDS ────────────────────────────────────
+
+# ── update_field_schema ──────────────────────────────────────────
+# fields:
+#   - field: FIELD_NAME
+#     new_alias: Human Readable Alias
+#     new_name:  NEW_FIELD_NAME        # optional rename
+#     new_type:  TEXT                  # optional type change
+#     new_length: 100                  # optional length change
+#     new_nullable: NULLABLE           # optional; default is no change ("#")
+
+# ── add_fields ───────────────────────────────────────────────────
+# fields:
+#   - name: NEW_FIELD
+#     alias: Human Readable Name
+#     field_type: TEXT                 # TEXT | SHORT | LONG | DOUBLE | DATE
+#     field_length: 50                 # for TEXT fields
+#     nullable: NULLABLE
+#     domain: domain_name              # optional
+#     default: ""                      # optional
+
+# ── delete_fields ────────────────────────────────────────────────
+# fields:
+#   - OLD_FIELD_NAME
+#   - ANOTHER_FIELD
+
+# ── set_field_defaults ───────────────────────────────────────────
+# field_defaults:
+#   FCODE: "RRRD"
+#   STR_STATUS: "OPEN"
+#   FROM_ELEV: 0
+# subtype_codes: []                    # leave empty for all subtypes
+
+# ── assign_domains ───────────────────────────────────────────────
+# domain_assignments:
+#   - field: FIELD_NAME
+#     domain: domain_name
+#     subtypes: []                     # optional subtype codes e.g. ['1', '3']
+
+# ── new_domain / change_domain_values ────────────────────────────
+# domain_name: my_domain_name
+# field_type: TEXT                     # TEXT | SHORT | LONG
+# domain_type: CODED                   # CODED | RANGE
+# values:
+#   CODE1: Description One
+#   CODE2: Description Two
+
+# ── new_feature (point to the SDSF Excel file) ───────────────────
+# sdsf_path: "T:\\work\\giss\\sdsf\\MyFeature_SDSF.xlsx"
+# feature_type: POINT                  # POINT | LINE | POLYGON
+# feature_dataset:                     # optional
+
+# ─────────────────────────────────────────────────────────────────
+# EXAMPLES
+# ─────────────────────────────────────────────────────────────────
+
+# Example 1: Update field aliases
+# ────────────────────────────────
+# operation: update_field_schema
+# feature: SDEADM.TRN_traffic_calming_assessm
+# databases: [dev_rw]
+# notes: "GIS-1234 — rename aliases for clarity"
+# fields:
+#   - field: FILE_NAME
+#     new_alias: Original Speed File
+#   - field: UFILE_NAME
+#     new_alias: Updated Speed File
+
+# Example 2: Add fields
+# ──────────────────────
+# operation: add_fields
+# feature: SDEADM.ADM_polling_district_2016
+# databases: [dev_rw]
+# notes: "GIS-5678 — add 2016 Census population fields"
+# fields:
+#   - name: DISTPOP
+#     alias: "2016 Census Population"
+#     field_type: LONG
+#     nullable: NULLABLE
+#   - name: POPSOURCE
+#     alias: "Population Source"
+#     field_type: TEXT
+#     field_length: 50
+#     nullable: NULLABLE
+#     default: "98-316-X2016001"
+
+# Example 3: Create a new coded domain
+# ──────────────────────────────────────
+# operation: new_domain
+# databases: [dev_rw, dev_ro, dev_web_ro_gdb]
+# notes: "GIS-9999 — indigenous land classification domain"
+# domain_name: LND_indigenous_land_classification
+# field_type: TEXT
+# domain_type: CODED
+# values:
+#   LEG: Legislated Land
+#   TRT: Treaty/Settlement Land
+#   SGA: Self-Governed Land
