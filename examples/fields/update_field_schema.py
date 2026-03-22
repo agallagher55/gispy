@@ -12,8 +12,6 @@ import logging
 
 from configparser import ConfigParser
 
-from zipp.glob import separate
-
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
@@ -81,14 +79,14 @@ if __name__ == "__main__":
 
     separator = "-" * 70
 
-    start_time = time.asctime(time.localtime(time.time()))
+    start_time = time.asctime()
     logger.info(f"Start: {start_time}")
     logger.info(separator)
 
     PC_NAME = os.environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    logger.info(f"PC Name: {PC_NAME}Running from: {run_from}...")
+    logger.info(f"PC Name: {PC_NAME} | Running from: {run_from}...")
 
     try:
 
@@ -109,29 +107,33 @@ if __name__ == "__main__":
             #     config.get("SERVER", "prod_web_ro_gdb"),
             # ],
         ]:
-    
+
             if dbs:
                 logger.info(f"Processing dbs: {', '.join(dbs)}...")
-    
+
                 for db in dbs:
                     logger.info(f"DATABASE: {db}")
-    
-                    for update_feature in update_feature_info:
-    
+
+                    for feature_key, field_infos in update_feature_info.items():
+
+                        update_feature = (
+                            feature_key.upper().replace("SDEADM.", "")
+                            if db.lower().endswith(".gdb")
+                            else feature_key
+                        )
+
                         with arcpy.EnvManager(workspace=db):
-    
-                            for field_info in update_feature_info[update_feature]:
-    
+
+                            for field_info in field_infos:
+
                                 field = field_info['field']
-    
+
                                 new_alias = field_info.get('new_alias')
                                 new_length = field_info.get('new_length')
                                 new_name = field_info.get('new_name')
                                 new_type = field_info.get('new_type')
-    
-                                if db.upper().endswith("GDB"):
-                                    update_feature = update_feature.upper().replace("SDEADM.", "")
-    
+                                new_nullable = field_info.get('new_nullable', '#')
+
                                 update_field_config(
                                     feature=update_feature,
                                     field=field,
@@ -139,17 +141,15 @@ if __name__ == "__main__":
                                     alias=new_alias,
                                     field_type=new_type,
                                     length=new_length,
-                                    nullable="#",
+                                    nullable=new_nullable,
                                 )
-    
-                                logger.info(arcpy.GetMessages())
 
     except arcpy.ExecuteError:
         arcpy_msg = arcpy.GetMessages(2)
         logger.error(arcpy_msg)
 
     except Exception as e:
-        logger.info(e)
+        logger.error(e)
 
         # Return any python specific errors as well as any errors from the geoprocessor
         tb = sys.exc_info()[2]
@@ -164,6 +164,6 @@ if __name__ == "__main__":
         sys.exit()
 
     # Close the Log File:
-    end_time = time.asctime(time.localtime(time.time()))
+    end_time = time.asctime()
     logger.info(separator)
     logger.info(f"End: {end_time}")
