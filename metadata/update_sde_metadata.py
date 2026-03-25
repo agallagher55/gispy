@@ -71,14 +71,13 @@ logger.addHandler(console_handler)
 
 config = ConfigParser()
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-config.read(os.path.join(_SCRIPT_DIR, "..", "config.ini"))
+config.read(os.path.join("config.ini"))
 
 run_from = "SERVER" if "APP" in os.environ.get("COMPUTERNAME", "").upper() else "LOCAL"
 
 if __name__ == "__main__":
 
     logger.info("=" * 60)
-    logger.info("update_sde_metadata.py started")
     logger.info(f"SDSF: {SDSF_PATH}")
 
     # ── Read SDSF metadata ─────────────────────────────────────────────────────
