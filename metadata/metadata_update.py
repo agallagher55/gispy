@@ -17,7 +17,8 @@ arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
 config = ConfigParser()
-config.read('config.ini')
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+config.read(os.path.join(_SCRIPT_DIR, "..", "config.ini"))
 
 SDE = config.get("LOCAL", "prod_rw")
 

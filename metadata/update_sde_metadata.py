@@ -69,7 +69,8 @@ logger.addHandler(console_handler)
 # ── Config ─────────────────────────────────────────────────────────────────────
 
 config = ConfigParser()
-config.read("config.ini")
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+config.read(os.path.join(_SCRIPT_DIR, "..", "config.ini"))
 
 run_from = "SERVER" if "APP" in os.environ.get("COMPUTERNAME", "").upper() else "LOCAL"
 

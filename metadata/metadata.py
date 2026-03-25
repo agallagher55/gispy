@@ -247,7 +247,8 @@ if __name__ == "__main__":
     from configparser import ConfigParser
 
     config = ConfigParser()
-    config.read("config.ini")
+    _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    config.read(os.path.join(_SCRIPT_DIR, "..", "config.ini"))
 
     SDE = config.get("LOCAL", "prod_rw")
 
