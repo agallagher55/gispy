@@ -53,28 +53,31 @@ class SDSFMetaData:
     def __repr__(self):
         return self.name
 
+    # Column name in the METADATA tab of the SDSF Excel workbook
+    _COL = 'SDE Metadata'
+
     def get_description(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Description:'].index[0]
+        header_idx = self.df.loc[self.df[self._COL] == 'Description: (1000 character limit)'].index[0]
         desc = self.df.iloc[header_idx + 1, 0]  # row, col
         return desc
 
     def get_summary(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Purpose:'].index[0]
+        header_idx = self.df.loc[self.df[self._COL] == 'Summary: (500 character limit)'].index[0]
         desc = self.df.iloc[header_idx + 1, 0]  # row, col
         return desc
 
     def get_tags(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Tags:'].index[0]
+        header_idx = self.df.loc[self.df[self._COL] == 'Tags: (255 character limit)'].index[0]
         tags = self.df.iloc[header_idx + 1, 0]  # row, col
         return tags
 
     def get_limitations(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Notes or Disclaimers:'].index[0]
+        header_idx = self.df.loc[self.df[self._COL] == 'Use Limitations: (255 character limit)'].index[0]
         limits = self.df.iloc[header_idx + 1, 0]  # row, col
         return limits
 
     def get_name(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Name:'].index[0]
+        header_idx = self.df.loc[self.df[self._COL] == 'Data Source Name'].index[0]
         name = self.df.iloc[header_idx, 1]  # row, col
         return f"METADATA: {name}"
 
