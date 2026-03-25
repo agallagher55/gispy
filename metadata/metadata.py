@@ -35,7 +35,7 @@ def get_xml_text(xml, tags='reviseDate'):
 
 class SDSFMetaData:
 
-    xl_tab = "SDSF"
+    xl_tab = "METADATA"
 
     def __init__(self, source):
         self.source = source
