@@ -144,6 +144,16 @@ def get_sde_metadata(db, feature):
 
 
 def update_metadata(db, feature, update_options: dict):
+    """Update SDE metadata for a feature.
+
+    Supported keys in update_options:
+        title             – metadata title
+        description       – full dataset description (HTML allowed)
+        summary           – short purpose / abstract
+        tags              – comma-separated keyword tags
+        access_constraints – use limitations / disclaimers
+        revised_date      – revision date string (e.g. '2024-03-01T00:00:00')
+    """
 
     # Create a metadata editor object
     metadata = md.Metadata(os.path.join(db, feature))
@@ -153,8 +163,27 @@ def update_metadata(db, feature, update_options: dict):
 
     if not read_only:
 
-        if update_options.get('revised_date'):
+        if update_options.get('title'):
+            print(f"\tUpdating title to: {update_options['title']}")
+            metadata.title = update_options['title']
 
+        if update_options.get('description'):
+            print(f"\tUpdating description...")
+            metadata.description = update_options['description']
+
+        if update_options.get('summary'):
+            print(f"\tUpdating summary...")
+            metadata.summary = update_options['summary']
+
+        if update_options.get('tags'):
+            print(f"\tUpdating tags to: {update_options['tags']}")
+            metadata.tags = update_options['tags']
+
+        if update_options.get('access_constraints'):
+            print(f"\tUpdating access constraints...")
+            metadata.accessConstraints = update_options['access_constraints']
+
+        if update_options.get('revised_date'):
             current_revised_date = get_xml_text(metadata.xml, 'reviseDate')
             new_revised_date = update_options['revised_date']
 
@@ -163,19 +192,6 @@ def update_metadata(db, feature, update_options: dict):
                 f"<reviseDate>{current_revised_date}</reviseDate>",
                 f"<reviseDate>{new_revised_date}</reviseDate>"
             )
-        #
-        # # Update the metadata
-        # metadata.title = feature
-        #
-        # metadata.description = metadata.description
-        # metadata.summary = metadata.summary
-        # metadata.tags = metadata.tags
-
-        # TODO: Type [Enterprise Geodatabase Feature Class, SDE Table, ]
-        #  Use SDSF Class to get shape type/table
-        #  Create subclass to track metadata information?
-
-        # metadata.accessConstraints = metadata_info.limitations
 
         # Save the changes
         print("\n\tSaving update...")
