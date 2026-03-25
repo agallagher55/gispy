@@ -24,6 +24,7 @@ import os
 import sys
 import traceback
 import datetime
+
 from configparser import ConfigParser
 
 import arcpy
@@ -36,7 +37,7 @@ arcpy.SetLogHistory(False)
 # ── User configuration ─────────────────────────────────────────────────────────
 
 # Path to the SDSF Excel workbook
-SDSF_PATH = r"T:\work\giss\sdsf\MyFeature_SDSF.xlsx"
+SDSF_PATH = r"T:\work\giss\monthly\202603mar\gallaga\LND_PPLC_xxx_applications\Create new feature class LND_PPLC_ planning_applications.xlsx"  # TODO: Update me
 
 # SDE feature to update, e.g. "SDEADM.LND_ANS_communities"
 # Leave empty ("") to use the Dataset Name from the SDSF.
@@ -74,17 +75,19 @@ config.read(os.path.join(_SCRIPT_DIR, "..", "config.ini"))
 
 run_from = "SERVER" if "APP" in os.environ.get("COMPUTERNAME", "").upper() else "LOCAL"
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
 
-def main():
     logger.info("=" * 60)
     logger.info("update_sde_metadata.py started")
     logger.info(f"SDSF: {SDSF_PATH}")
 
     # ── Read SDSF metadata ─────────────────────────────────────────────────────
     try:
+
         sdsf = SDSFMetaData(SDSF_PATH)
+
     except Exception as e:
+
         logger.error(f"Failed to read SDSF: {e}")
         sys.exit(1)
 
@@ -114,12 +117,17 @@ def main():
 
     # ── Database loop ──────────────────────────────────────────────────────────
     for dbs in [
+
         [config.get(run_from, "dev_rw")],
         # [config.get(run_from, "qa_rw")],
         # [config.get(run_from, "prod_rw")],
+
     ]:
+
         if dbs:
+
             for db in dbs:
+
                 logger.info(f"\nDatabase: {db}")
 
                 with arcpy.EnvManager(workspace=db):
@@ -134,6 +142,7 @@ def main():
                     logger.info(f"Reading current metadata for {fc}...")
 
                     try:
+
                         current_meta = get_sde_metadata(db, fc)
                         logger.info(f"  Current title   : {current_meta.get('TITLE')}")
                         logger.info(f"  Current rev date: {current_meta.get('REVISION_DATE')}")
@@ -143,9 +152,11 @@ def main():
                         logger.info("Metadata update complete.")
 
                     except arcpy.ExecuteError:
+
                         logger.error(arcpy.GetMessages(2))
 
                     except Exception as e:
+
                         logger.error(e)
                         tb = sys.exc_info()[2]
                         tbinfo = traceback.format_tb(tb)[0]
@@ -154,7 +165,3 @@ def main():
                         sys.exit()
 
     logger.info("Done.")
-
-
-if __name__ == "__main__":
-    main()
