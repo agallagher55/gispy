@@ -18,7 +18,7 @@ from gispy.domains import transfer_domains, domains_in_db
 from gispy.SpatialDataSubmissionForms.features import Feature
 from gispy.SpatialDataSubmissionForms.reporter import FieldsReport, DomainsReport
 
-from metadata import SDSFMetaData, update_metadata
+from gispy.metadata.metadata import SDSFMetaData, update_metadata
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -30,7 +30,7 @@ config.read('config.ini')
 
 feature_config = ConfigParser()
 feature_config.optionxform = str  # preserve case
-feature_config.read('feature_config_planning_applications.ini')
+feature_config.read('feature_config_grass_servicing.ini')
 
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
 SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
