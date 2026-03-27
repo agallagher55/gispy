@@ -100,8 +100,8 @@ if __name__ == "__main__":
                 feature_name = fields_report.feature_class_name  # Should be all lower case except for the prefix
                 feature_shape = fields_report.feature_shape
 
-                UNIQUE_ID_FIELDS = ast.literal_eval(feature_config.get("UNIQUE_ID_FIELDS", feature_name, fallback='[]'))
-
+                UNIQUE_ID_FIELDS = ast.literal_eval(feature_config.get('FEATURE_SETTINGS', "unique_id_fields", fallback='[]'))
+                
                 if feature_shape.upper() == "LINE":
                     feature_shape = "Polyline"
 
@@ -297,10 +297,9 @@ if __name__ == "__main__":
 
                         for user in EDIT_PERMISSIONS_USERS:
                             print(f"\nEnabling privileges for {user}")
-                            arcpy.ChangePrivileges_management(
-                                in_dataset=new_feature.feature,
+                            new_feature.change_privileges(
                                 user=user,
-                                Edit="GRANT"
+                                view="GRANT"
                             )
 
                     # SUBTYPES
