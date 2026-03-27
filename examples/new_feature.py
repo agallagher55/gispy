@@ -1,6 +1,7 @@
 import os
 import arcpy
 import ast
+import datetime
 
 from gispy import (
     connections,
@@ -16,6 +17,8 @@ from gispy.domains import transfer_domains, domains_in_db
 
 from gispy.SpatialDataSubmissionForms.features import Feature
 from gispy.SpatialDataSubmissionForms.reporter import FieldsReport, DomainsReport
+
+from metadata import SDSFMetaData, update_metadata
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -107,6 +110,24 @@ if __name__ == "__main__":
                 domains_report = DomainsReport(xl_file)
 
                 domain_names, domain_dataframes = domains_report.domain_info()
+
+                # Read metadata from the SDSF "METADATA" sheet
+                update_options = None
+                try:
+                    sdsf_meta = SDSFMetaData(xl_file)
+                    dataset_name = sdsf_meta.name.replace("METADATA: ", "").strip()
+                    today = datetime.datetime.today().strftime("%Y-%m-%dT00:00:00")
+                    update_options = {
+                        "title": dataset_name,
+                        "description": str(sdsf_meta.description) if sdsf_meta.description else None,
+                        "summary": str(sdsf_meta.summary) if sdsf_meta.summary else None,
+                        "tags": str(sdsf_meta.tags) if sdsf_meta.tags else None,
+                        "access_constraints": str(sdsf_meta.limitations) if sdsf_meta.limitations else None,
+                        "revised_date": today,
+                    }
+                    print(f"\nSDSF metadata loaded: '{dataset_name}'")
+                except Exception as e:
+                    print(f"\nWarning: could not read SDSF metadata sheet: {e}")
                 # domain_names = list(domain_data.keys())
 
                 # if SUBTYPES:
@@ -372,6 +393,14 @@ if __name__ == "__main__":
                                         arcpy_msg = arcpy.GetMessages(2)
                                         print(arcpy_msg)
 
+                                # Update metadata on RO copy
+                                if update_options:
+                                    print(f"\nUpdating metadata for RO feature '{new_feature.feature_name}'...")
+                                    try:
+                                        update_metadata(ro_sdeadm_db, new_feature.feature_name, update_options)
+                                    except Exception as e:
+                                        print(f"Warning: RO metadata update failed: {e}")
+
                     if ADD_EDITOR_TRACKING:
                         # ENABLE EDITOR TRACKING
                         new_feature.enable_editor_tracking()
@@ -403,6 +432,19 @@ if __name__ == "__main__":
                         except arcpy.ExecuteError:
                             arcpy_msg = arcpy.GetMessages(2)
                             print(arcpy_msg)
+
+                    # Update metadata on the newly created RW/GDB feature
+                    if update_options:
+                        fc_name = (
+                            new_feature.feature_name.split(".")[-1]
+                            if db.lower().endswith(".gdb")
+                            else new_feature.feature_name
+                        )
+                        print(f"\nUpdating metadata for '{fc_name}'...")
+                        try:
+                            update_metadata(db, fc_name, update_options)
+                        except Exception as e:
+                            print(f"Warning: metadata update failed: {e}")
 
     # Checks:
     # Replicas
