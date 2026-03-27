@@ -101,7 +101,7 @@ if __name__ == "__main__":
                 feature_shape = fields_report.feature_shape
 
                 UNIQUE_ID_FIELDS = ast.literal_eval(feature_config.get('FEATURE_SETTINGS', "unique_id_fields", fallback='[]'))
-                
+
                 if feature_shape.upper() == "LINE":
                     feature_shape = "Polyline"
 
@@ -299,7 +299,8 @@ if __name__ == "__main__":
                             print(f"\nEnabling privileges for {user}")
                             new_feature.change_privileges(
                                 user=user,
-                                view="GRANT"
+                                view="GRANT",
+                                edit="GRANT"
                             )
 
                     # SUBTYPES
