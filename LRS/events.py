@@ -6,6 +6,8 @@ import pandas as pd
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
+LRS_DATASET = "SDEADM.TRNLRS"
+
 PW_EVENTS = [
     "SDEADM.E_LANDMARK",  # Landmarks
     "SDEADM.E_PCIJURISDICIONSECTION500",  # SDI PCI 500m Jurisdiction Sections
@@ -24,6 +26,21 @@ PW_EVENTS = [
     "SDEADM.E_SIDEWALKCONDITION2016",  # Sidewalk Condition 2016
     "SDEADM.E_SIDEWALKCONDITION2018",  # Sidewalk Condition 2018
 ]
+
+
+def get_lrs_events(workspace):
+    """Return all LRS event feature class paths registered under LRS_DATASET in the given workspace."""
+    lrs_dataset_path = os.path.join(workspace, LRS_DATASET)
+    desc = arcpy.Describe(lrs_dataset_path)
+
+    events = []
+    for network in desc.networks:
+        network_path = os.path.join(lrs_dataset_path, network.name)
+        network_desc = arcpy.Describe(network_path)
+        for event in network_desc.events:
+            events.append(os.path.join(lrs_dataset_path, event.featureClassName))
+
+    return events
 
 
 class LrsEventForm:
