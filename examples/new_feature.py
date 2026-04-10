@@ -30,7 +30,8 @@ config.read('config.ini')
 
 feature_config = ConfigParser()
 feature_config.optionxform = str  # preserve case
-feature_config.read('feature_config_grass_servicing.ini')
+# TODO: UPDATE
+feature_config.read('feature_config_hwa_tree.ini')
 
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
 SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
@@ -48,7 +49,7 @@ SUBTYPE_DOMAINS = ast.literal_eval(feature_config.get("FEATURE_SETTINGS", "subty
 
 TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
 
-# TODO: update
+# TODO: UPDATE
 # UNIQUE ID FIELDS
 NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
 VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
