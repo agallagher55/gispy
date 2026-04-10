@@ -39,12 +39,16 @@ def get_lrs_events(workspace):
 
     events = []
     with arcpy.EnvManager(workspace=lrs_dataset_path):
+      
         for fc in arcpy.ListFeatureClasses():
             desc = arcpy.Describe(os.path.join(lrs_dataset_path, fc))
+            
             if not hasattr(desc, "events"):
                 continue
+                
             for event in desc.events:
                 event_path = os.path.join(lrs_dataset_path, event.featureClassName)
+                
                 if event_path not in events:
                     events.append(event_path)
 
