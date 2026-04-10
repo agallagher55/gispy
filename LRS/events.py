@@ -43,8 +43,9 @@ def get_lrs_events(workspace):
         for fc in arcpy.ListFeatureClasses():
 
             desc = arcpy.Describe(os.path.join(lrs_dataset_path, fc))
-
-            if not hasattr(desc, "eventBehaviorRules"):
+            
+            has_event_behvaiours = hasattr(desc, "eventBehaviorRules")
+            if not has_event_behvaiours:
                 continue
 
             for event in desc.events:
