@@ -29,16 +29,24 @@ PW_EVENTS = [
 
 
 def get_lrs_events(workspace):
-    """Return all LRS event feature class paths registered under LRS_DATASET in the given workspace."""
+    """Return all LRS event feature class paths registered under LRS_DATASET in the given workspace.
+
+    Iterates every feature class inside the LRS dataset and collects events from
+    any feature class that is an LRS Network (identified by having an 'events'
+    describe property).
+    """
     lrs_dataset_path = os.path.join(workspace, LRS_DATASET)
-    desc = arcpy.Describe(lrs_dataset_path)
 
     events = []
-    for network in desc.networks:
-        network_path = os.path.join(lrs_dataset_path, network.name)
-        network_desc = arcpy.Describe(network_path)
-        for event in network_desc.events:
-            events.append(os.path.join(lrs_dataset_path, event.featureClassName))
+    with arcpy.EnvManager(workspace=lrs_dataset_path):
+        for fc in arcpy.ListFeatureClasses():
+            desc = arcpy.Describe(os.path.join(lrs_dataset_path, fc))
+            if not hasattr(desc, "events"):
+                continue
+            for event in desc.events:
+                event_path = os.path.join(lrs_dataset_path, event.featureClassName)
+                if event_path not in events:
+                    events.append(event_path)
 
     return events
 
