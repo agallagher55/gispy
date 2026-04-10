@@ -60,7 +60,6 @@ for domain, field_type in NEW_DOMAIN_TYPES.items():
 
 PROD_SDE = config.get("SERVER", "prod_rw")
 
-
 SPATIAL_REFERENCE = os.path.join(PROD_SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
 
 if __name__ == "__main__":
@@ -100,7 +99,8 @@ if __name__ == "__main__":
                 feature_name = fields_report.feature_class_name  # Should be all lower case except for the prefix
                 feature_shape = fields_report.feature_shape
 
-                UNIQUE_ID_FIELDS = ast.literal_eval(feature_config.get('FEATURE_SETTINGS', "unique_id_fields", fallback='[]'))
+                UNIQUE_ID_FIELDS = ast.literal_eval(
+                    feature_config.get('FEATURE_SETTINGS', "unique_id_fields", fallback='[]'))
 
                 if feature_shape.upper() == "LINE":
                     feature_shape = "Polyline"
@@ -113,10 +113,13 @@ if __name__ == "__main__":
 
                 # Read metadata from the SDSF "METADATA" sheet
                 update_options = None
+                
                 try:
+                    
                     sdsf_meta = SDSFMetaData(xl_file)
                     dataset_name = sdsf_meta.name.replace("METADATA: ", "").strip()
                     today = datetime.datetime.today().strftime("%Y-%m-%dT00:00:00")
+                    
                     update_options = {
                         "title": dataset_name,
                         "description": str(sdsf_meta.description) if sdsf_meta.description else None,
@@ -126,8 +129,10 @@ if __name__ == "__main__":
                         "revised_date": today,
                     }
                     print(f"\nSDSF metadata loaded: '{dataset_name}'")
+                    
                 except Exception as e:
                     print(f"\nWarning: could not read SDSF metadata sheet: {e}")
+                    
                 # domain_names = list(domain_data.keys())
 
                 # if SUBTYPES:
@@ -156,6 +161,8 @@ if __name__ == "__main__":
                 # Create any new domains
                 if new_domains:
                     print(f"\nNew domains to create: {', '.join(new_domains)}")
+
+
                     # These should all be found in fields_report.field_details
 
                     def sort_key_description(row):
@@ -172,7 +179,9 @@ if __name__ == "__main__":
                         except (TypeError, ValueError):
                             return 1, str(val)  # non numeric, sorted alphabetically
 
-                    subtype_domain_names = {d["domain"] for d in SUBTYPE_DOMAINS["domains"]} if SUBTYPE_DOMAINS else set()
+
+                    subtype_domain_names = {d["domain"] for d in
+                                            SUBTYPE_DOMAINS["domains"]} if SUBTYPE_DOMAINS else set()
 
                     for domain in new_domains:
 
@@ -395,9 +404,12 @@ if __name__ == "__main__":
 
                                 # Update metadata on RO copy
                                 if update_options:
+                                    
                                     print(f"\nUpdating metadata for RO feature '{new_feature.feature_name}'...")
+                                    
                                     try:
                                         update_metadata(ro_sdeadm_db, new_feature.feature_name, update_options)
+                                        
                                     except Exception as e:
                                         print(f"Warning: RO metadata update failed: {e}")
 
@@ -435,14 +447,18 @@ if __name__ == "__main__":
 
                     # Update metadata on the newly created RW/GDB feature
                     if update_options:
+                        
                         fc_name = (
                             new_feature.feature_name.split(".")[-1]
                             if db.lower().endswith(".gdb")
                             else new_feature.feature_name
                         )
+                        
                         print(f"\nUpdating metadata for '{fc_name}'...")
+                        
                         try:
                             update_metadata(db, fc_name, update_options)
+                            
                         except Exception as e:
                             print(f"Warning: metadata update failed: {e}")
 
