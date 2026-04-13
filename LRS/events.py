@@ -29,31 +29,18 @@ PW_EVENTS = [
 
 
 def get_lrs_events(workspace):
+
     """Return all LRS event feature class paths registered under LRS_DATASET in the given workspace.
 
     Iterates every feature class inside the LRS dataset and collects events from
     any feature class that is an LRS Network (identified by having an 'events'
     describe property).
     """
+
     lrs_dataset_path = os.path.join(workspace, LRS_DATASET)
 
-    events = []
     with arcpy.EnvManager(workspace=lrs_dataset_path):
-
-        for fc in arcpy.ListFeatureClasses():
-
-            desc = arcpy.Describe(os.path.join(lrs_dataset_path, fc))
-            
-            has_event_behaviours = hasattr(desc, "eventBehaviorRules")
-            if not has_event_behaviours:
-                continue
-
-            for event in desc.events:
-                event_path = os.path.join(lrs_dataset_path, event.featureClassName)
-
-                if event_path not in events:
-                    print(event_path)
-                    events.append(event_path)
+        events = sorted([arcpy.Describe(x).catalogPath for x in arcpy.ListFeatureClasses()])
 
     return events
 
@@ -125,7 +112,7 @@ if __name__ == "__main__":
 
         workspace_events = get_lrs_events(workspace)
 
-        lrs_routes = os.path.join(workspace, LRS_DATASET, "SDEADM.LRSN_Route")
+        # lrs_routes = os.path.join(workspace, LRS_DATASET, "SDEADM.LRSN_Route")
         # if ".gdb" in workspace:
         #     output_event_feature = os.path.join(workspace, "TRNLRS", event_name)
         #
