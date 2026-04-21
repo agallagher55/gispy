@@ -209,8 +209,8 @@ if __name__ == "__main__":
 
                         # TypeError: '<' not supported between instances of 'str' and 'int' (LND_fac_snow_group_type)
                         for row in sorted([x for x in domain_df.itertuples()], key=sort_key):
-                            code = row.Code
-                            desc = row.Description
+                            code = row[1]
+                            desc = row[2]
 
                             logger.info(f"\tAdding ({code}: {desc})")
                             arcpy.AddCodedValueToDomain_management(
