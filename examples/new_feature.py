@@ -1,6 +1,9 @@
 import os
 import ast
 import datetime
+import warnings
+
+warnings.filterwarnings("ignore", message=".*Data Validation extension is not supported.*")
 
 import arcpy
 
