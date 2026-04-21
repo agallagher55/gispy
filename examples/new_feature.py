@@ -71,13 +71,17 @@ SPATIAL_REFERENCE = os.path.join(PROD_SDE, "SDEADM.LND_hrm_parcel_parks", "SDEAD
 
 
 def sort_key_description(row):
-    val = row[2]  # Description column — positional to handle "Description" vs "DESCRIPTION" headers
-    if val is None:
+
+    description = row[2].strip()  # Description column — positional to handle "Description" vs "DESCRIPTION" headers
+
+    if description is None:
         return 2, ""
+
     try:
-        return 0, int(val)
+        return 0, int(description)
+
     except (TypeError, ValueError):
-        return 1, str(val)
+        return 1, str(description)
 
 
 if __name__ == "__main__":
