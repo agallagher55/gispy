@@ -1,12 +1,14 @@
 import os
-import arcpy
 import ast
 import datetime
+
+import arcpy
 
 from gispy import (
     connections,
     attribute_rules
 )
+from gispy.utils import setupLog
 
 from gispy.replicas import replicas
 
@@ -33,6 +35,9 @@ feature_config.optionxform = str  # preserve case
 # TODO: UPDATE
 feature_config.read('feature_config_hwa_tree.ini')
 
+log_file = os.path.join(os.getcwd(), f"{datetime.date.today()}_new_feature.log")
+logger = setupLog(log_file, log_to_console=True)
+
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
 SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
 
@@ -45,23 +50,35 @@ REPLICA_NAME = feature_config.get("FEATURE_SETTINGS", "replica_name")
 
 SUBTYPES = feature_config.getboolean("FEATURE_SETTINGS", "subtypes")
 SUBTYPE_FIELD = feature_config.get("FEATURE_SETTINGS", "subtype_field", fallback="")
-SUBTYPE_DOMAINS = ast.literal_eval(feature_config.get("FEATURE_SETTINGS", "subtype_domains"))  # if needed
+SUBTYPE_DOMAINS = ast.literal_eval(feature_config.get("FEATURE_SETTINGS", "subtype_domains"))
 
 TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
 
+UNIQUE_ID_FIELDS = ast.literal_eval(
+    feature_config.get('FEATURE_SETTINGS', "unique_id_fields", fallback='[]'))
+
 # TODO: UPDATE
-# UNIQUE ID FIELDS
 NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
 VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
 
 for domain, field_type in NEW_DOMAIN_TYPES.items():
-
     if field_type.upper() not in VALID_FIELD_TYPES:
         raise ValueError(f"Error: Field type '{field_type}' for domain '{domain}' is not standard.")
 
 PROD_SDE = config.get("SERVER", "prod_rw")
 
 SPATIAL_REFERENCE = os.path.join(PROD_SDE, "SDEADM.LND_hrm_parcel_parks", "SDEADM.LND_hrm_park")
+
+
+def sort_key_description(row):
+    val = row.Description
+    if val is None:
+        return 2, ""
+    try:
+        return 0, int(val)
+    except (TypeError, ValueError):
+        return 1, str(val)
+
 
 if __name__ == "__main__":
 
@@ -86,7 +103,7 @@ if __name__ == "__main__":
     ]:
 
         for count, db in enumerate(dbs, start=1):
-            print(f"\n{count}/{len(dbs)}) Database: {db}")
+            logger.info(f"{count}/{len(dbs)}) Database: {db}")
 
             # Determine the type and read-write status of a database. Ex) SDE + RW, SDE + RO, GDB, etc.
             db_type, db_rights = connections.connection_type(db)
@@ -94,14 +111,11 @@ if __name__ == "__main__":
             for xl_file in [
                 SDSF,
             ]:
-                print(f"\nCreating feature from {xl_file}...")
+                logger.info(f"Creating feature from {xl_file}...")
                 fields_report = FieldsReport(xl_file)
 
                 feature_name = fields_report.feature_class_name  # Should be all lower case except for the prefix
                 feature_shape = fields_report.feature_shape
-
-                UNIQUE_ID_FIELDS = ast.literal_eval(
-                    feature_config.get('FEATURE_SETTINGS', "unique_id_fields", fallback='[]'))
 
                 if feature_shape.upper() == "LINE":
                     feature_shape = "Polyline"
@@ -114,13 +128,12 @@ if __name__ == "__main__":
 
                 # Read metadata from the SDSF "METADATA" sheet
                 update_options = None
-                
+
                 try:
-                    
                     sdsf_meta = SDSFMetaData(xl_file)
                     dataset_name = sdsf_meta.name.replace("METADATA: ", "").strip()
                     today = datetime.datetime.today().strftime("%Y-%m-%dT00:00:00")
-                    
+
                     update_options = {
                         "title": dataset_name,
                         "description": str(sdsf_meta.description) if sdsf_meta.description else None,
@@ -129,26 +142,14 @@ if __name__ == "__main__":
                         "access_constraints": str(sdsf_meta.limitations) if sdsf_meta.limitations else None,
                         "revised_date": today,
                     }
-                    print(f"\nSDSF metadata loaded: '{dataset_name}'")
-                    
-                except Exception as e:
-                    print(f"\nWarning: could not read SDSF metadata sheet: {e}")
-                    
-                # domain_names = list(domain_data.keys())
+                    logger.info(f"SDSF metadata loaded: '{dataset_name}'")
 
-                # if SUBTYPES:
-                #     subtype_info = fields_report.subtype_info()
-                #     subtype_field = subtype_info.get("subtype_field")
-                #     subtype_field = \
-                #         [value.get("subtype_field") for key, value in domain_data.items() if
-                #          value.get("subtype_field")][0]
-                #     subtype_domains_field = subtype_info.get("subtype_domains_field")
-                #     subtype_data = {key: value for key, value in domain_data.items() if
-                #                     domain_data[key].get("subtype_code")}
+                except Exception as e:
+                    logger.warning(f"Could not read SDSF metadata sheet: {e}")
 
                 if db_type == "GDB":
 
-                    # Transfer existing domains to local dgb and find new domains not in SDE
+                    # Transfer existing domains to local gdb and find new domains not in SDE
                     new_domains = transfer_domains(
                         domains=domain_names,
                         output_workspace=db,
@@ -161,25 +162,7 @@ if __name__ == "__main__":
 
                 # Create any new domains
                 if new_domains:
-                    print(f"\nNew domains to create: {', '.join(new_domains)}")
-
-
-                    # These should all be found in fields_report.field_details
-
-                    def sort_key_description(row):
-                        val = row.Description
-
-                        # Put None at the end
-                        if val is None:
-                            return 2, ""
-
-                        # Try numeric first
-                        try:
-                            return 0, int(val)  # numeric bucket, sorted numerically
-
-                        except (TypeError, ValueError):
-                            return 1, str(val)  # non numeric, sorted alphabetically
-
+                    logger.info(f"New domains to create: {', '.join(new_domains)}")
 
                     subtype_domain_names = {d["domain"] for d in
                                             SUBTYPE_DOMAINS["domains"]} if SUBTYPE_DOMAINS else set()
@@ -195,9 +178,9 @@ if __name__ == "__main__":
                             # Check if domain is a subtype domain
                             if domain in subtype_domain_names:
                                 field_type = "LONG"
-                                print("\t*Subtype Domain Found!")
+                                logger.info("\t*Subtype Domain Found!")
 
-                            print(f"\n\tCreating domain '{domain}'...")
+                            logger.info(f"\tCreating domain '{domain}'...")
                             arcpy.CreateDomain_management(
                                 in_workspace=db,
                                 domain_name=domain,
@@ -210,8 +193,8 @@ if __name__ == "__main__":
 
                         except arcpy.ExecuteError:
                             arcpy_msg = arcpy.GetMessages(2)
-                            print(f"Arcpy Error: {arcpy_msg}")
-                            print(f"^^^*(Sometimes this fails in the script, but domain still gets created.)")
+                            logger.error(f"Arcpy Error: {arcpy_msg}")
+                            logger.warning("(Sometimes this fails in the script, but domain still gets created.)")
 
                         domain_df = domain_dataframes.get(domain)
 
@@ -222,7 +205,7 @@ if __name__ == "__main__":
                             code = row.Code
                             desc = row.Description
 
-                            print(f"\tAdding ({code}: {desc})")
+                            logger.info(f"\tAdding ({code}: {desc})")
                             arcpy.AddCodedValueToDomain_management(
                                 in_workspace=db,
                                 domain_name=domain,
@@ -231,7 +214,7 @@ if __name__ == "__main__":
                             )
 
                 else:
-                    print("\nNO new domains to create.")
+                    logger.info("NO new domains to create.")
 
                 # Create the feature and add fields
                 if (db_type == "SDE" and db_rights == "RW") or (db_type == "GDB" and not db_rights):
@@ -243,13 +226,12 @@ if __name__ == "__main__":
                         spatial_reference=SPATIAL_REFERENCE
                     )
 
-                    print("\nAdding Fields...")
+                    logger.info("Adding Fields...")
                     feature_fields = field_data["Field Name"].values
 
                     for row_num, row in field_data.iterrows():
 
                         field_name = row["Field Name"].upper().strip()
-                        # field_length = row["Field Length (# of characters)"]
                         field_length = row["Field Length"]
 
                         if field_name not in SDSF_IGNORE_FIELDS:
@@ -276,7 +258,7 @@ if __name__ == "__main__":
                             )
 
                             if domain and domain != "#":
-                                print(f"\t\t{field_name} has domain: '{domain}'")
+                                logger.info(f"\t\t{field_name} has domain: '{domain}'")
                                 new_feature.assign_domain(
                                     field_name=field_name,
                                     domain_name=domain,
@@ -306,7 +288,7 @@ if __name__ == "__main__":
                         )
 
                         for user in EDIT_PERMISSIONS_USERS:
-                            print(f"\nEnabling privileges for {user}")
+                            logger.info(f"Enabling privileges for {user}")
                             new_feature.change_privileges(
                                 user=user,
                                 view="GRANT",
@@ -325,35 +307,30 @@ if __name__ == "__main__":
                         if ENABLE_ARCHIVING:
                             new_feature.enable_archiving()
 
-                        # COPY FEATURE TO RO, WEBGIS
+                        # COPY FEATURE TO RO
                         ro_sdeadm_db = db.replace("RW", "RO")
-
                         ro_sdeadm_feature = os.path.join(ro_sdeadm_db, new_feature.feature_name)
 
-                        for ro_feature, ro_db in [(ro_sdeadm_feature, ro_sdeadm_db)]:
-
-                            # Don't need to add to WEB if feature is a table
-                            if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
-                                print(f"\nFeature is a table - skipping adding to WEB RO...")
-                                continue
-
-                            if not arcpy.Exists(ro_feature):
-                                print(f"\tCopying RW feature to {ro_db}...")
+                        if feature_shape.upper() == 'ENTERPRISE GEODATABASE TABLE':
+                            logger.info("Feature is a table - skipping adding to WEB RO...")
+                        else:
+                            if not arcpy.Exists(ro_sdeadm_feature):
+                                logger.info(f"\tCopying RW feature to {ro_sdeadm_db}...")
 
                                 # Need to use table to table if a table...
                                 if feature_shape.upper() in ('ENTERPRISE GEODATABASE TABLE', 'NOT APPLICABLE'):
-                                    feature = arcpy.TableToTable_conversion(
+                                    arcpy.TableToTable_conversion(
                                         in_rows=new_feature.feature,
-                                        out_path=ro_db,
+                                        out_path=ro_sdeadm_db,
                                         out_name=new_feature.feature_name
-                                    )[0]
+                                    )
 
                                 else:
-                                    feature = arcpy.FeatureClassToFeatureClass_conversion(
+                                    arcpy.FeatureClassToFeatureClass_conversion(
                                         in_features=new_feature.feature,
-                                        out_path=ro_db,
+                                        out_path=ro_sdeadm_db,
                                         out_name=new_feature.feature_name,
-                                    )[0]
+                                    )
 
                         if READY_TO_ADD_TO_REPLICA:
                             replicas.add_to_replica(
@@ -365,54 +342,48 @@ if __name__ == "__main__":
                             )
 
                         # Un-version RO feature, disable editor tracking, index
-                        for feature in [ro_sdeadm_feature]:
+                        if arcpy.Exists(ro_sdeadm_feature):  # may not exist if feature was a table
 
-                            if arcpy.Exists(
-                                    feature):  # ro_webgis_feature may not have ever gotten created if it was a table.
+                            logger.info(f"\tRegistering as UN-versioned for '{ro_sdeadm_feature}'...")
+                            arcpy.UnregisterAsVersioned_management(in_dataset=ro_sdeadm_feature)
 
-                                print(f"\tRegistering as UN-versioned for '{feature}'...")
-                                arcpy.UnregisterAsVersioned_management(in_dataset=feature)
+                            if ADD_EDITOR_TRACKING:
+                                logger.info(f"\tDisabling Editor Tracking for '{ro_sdeadm_feature}'...")
+                                arcpy.DisableEditorTracking_management(in_dataset=ro_sdeadm_feature)
 
-                                if ADD_EDITOR_TRACKING:
-                                    print(f"\tDisabling Editor Tracking for '{feature}'...")
-                                    arcpy.DisableEditorTracking_management(in_dataset=feature)
+                            # Set privileges
+                            ro_users = ["PUBLIC", "SDE"]
 
-                                # Set privileges
-                                ro_users = ["PUBLIC", "SDE"]
+                            for user in ro_users:
+                                arcpy.ChangePrivileges_management(
+                                    in_dataset=ro_sdeadm_feature,
+                                    user=user,
+                                    View="GRANT"
+                                )
 
-                                for user in ro_users:
-                                    arcpy.ChangePrivileges_management(
-                                        in_dataset=feature,
-                                        user=user,
-                                        View="GRANT"
+                            for field_info in UNIQUE_ID_FIELDS:
+                                id_field = field_info.get("field")
+
+                                logger.info(f"Adding attribute index on {id_field}...")
+                                try:
+                                    arcpy.AddIndex_management(
+                                        in_table=ro_sdeadm_feature,
+                                        fields=id_field,
+                                        index_name=f"index_{id_field}",
+                                        ascending="ASCENDING"
                                     )
 
-                                for field_info in UNIQUE_ID_FIELDS:
-                                    id_field = field_info.get("field")
+                                except arcpy.ExecuteError:
+                                    arcpy_msg = arcpy.GetMessages(2)
+                                    logger.error(arcpy_msg)
 
-                                    print(f"\nAdding attribute index on {id_field}...")
-                                    try:
-                                        arcpy.AddIndex_management(
-                                            in_table=feature,
-                                            fields=id_field,
-                                            index_name=f"index_{id_field}",
-                                            ascending="ASCENDING"
-                                        )
-
-                                    except arcpy.ExecuteError:
-                                        arcpy_msg = arcpy.GetMessages(2)
-                                        print(arcpy_msg)
-
-                                # Update metadata on RO copy
-                                if update_options:
-                                    
-                                    print(f"\nUpdating metadata for RO feature '{new_feature.feature_name}'...")
-                                    
-                                    try:
-                                        update_metadata(ro_sdeadm_db, new_feature.feature_name, update_options)
-                                        
-                                    except Exception as e:
-                                        print(f"Warning: RO metadata update failed: {e}")
+                            # Update metadata on RO copy
+                            if update_options:
+                                logger.info(f"Updating metadata for RO feature '{new_feature.feature_name}'...")
+                                try:
+                                    update_metadata(ro_sdeadm_db, new_feature.feature_name, update_options)
+                                except Exception as e:
+                                    logger.warning(f"RO metadata update failed: {e}")
 
                     if ADD_EDITOR_TRACKING:
                         # ENABLE EDITOR TRACKING
@@ -424,7 +395,7 @@ if __name__ == "__main__":
                         id_field = field_info.get("field")
                         prefix = field_info.get("prefix")
 
-                        print(f"Creating Sequence and Attribute Rule for {id_field} with prefix {prefix}...")
+                        logger.info(f"Creating Sequence and Attribute Rule for {id_field} with prefix {prefix}...")
 
                         attribute_rules.add_sequence_rule(
                             workspace=db,
@@ -433,7 +404,7 @@ if __name__ == "__main__":
                             sequence_prefix=prefix,
                         )
 
-                        print(f"\nAdding attribute index on {id_field}...")
+                        logger.info(f"Adding attribute index on {id_field}...")
                         try:
                             arcpy.AddIndex_management(
                                 in_table=new_feature.feature,
@@ -444,24 +415,24 @@ if __name__ == "__main__":
 
                         except arcpy.ExecuteError:
                             arcpy_msg = arcpy.GetMessages(2)
-                            print(arcpy_msg)
+                            logger.error(arcpy_msg)
 
                     # Update metadata on the newly created RW/GDB feature
                     if update_options:
-                        
+
                         fc_name = (
                             new_feature.feature_name.split(".")[-1]
                             if db.lower().endswith(".gdb")
                             else new_feature.feature_name
                         )
-                        
-                        print(f"\nUpdating metadata for '{fc_name}'...")
-                        
+
+                        logger.info(f"Updating metadata for '{fc_name}'...")
+
                         try:
                             update_metadata(db, fc_name, update_options)
-                            
+
                         except Exception as e:
-                            print(f"Warning: metadata update failed: {e}")
+                            logger.warning(f"Metadata update failed: {e}")
 
     # Checks:
     # Replicas
