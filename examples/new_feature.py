@@ -208,7 +208,7 @@ if __name__ == "__main__":
                         sort_key = (lambda x: x.Code) if domain in subtype_domain_names else sort_key_description
 
                         # TypeError: '<' not supported between instances of 'str' and 'int' (LND_fac_snow_group_type)
-                        for row in sorted([x for x in domain_df.itertuples()], key=sort_key):
+                        for row in sorted([x.strip() for x in domain_df.itertuples()], key=sort_key):
                             code = row[1]
                             desc = row[2]
 
