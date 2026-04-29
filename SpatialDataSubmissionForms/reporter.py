@@ -47,7 +47,7 @@ class Report:
         shape_type = df_feature_details["Shape Type"].values[0] or "Enterprise Geodatabase Table"
         feature_type = df_feature_details["Feature Type"].values[0]
 
-        return [feature_class_name, shape_type, feature_type]
+        return feature_class_name, shape_type, feature_type
 
 
 class SDSFMetaData:
