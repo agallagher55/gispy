@@ -258,7 +258,12 @@ class DomainsReport(Report):
                     domain_df = domain_df.iloc[2:, :2]  # Only select 2nd to 2nd last row and first two columns
     
                 domain_df.dropna(inplace=True)
-    
+                
+                # Strip code, desc values
+                for row in domain_df.itertuples():
+                    code = str(row[1]).strip() if isinstance(row[1], str) else row[1]
+                    desc = str(row[2]).strip() if isinstance(row[2], str) else row[2]
+                
                 # Clean
                 # Remove any domain dataframes with empty rows
                 num_df_rows = len(domain_df.index)
