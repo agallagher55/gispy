@@ -16,11 +16,13 @@ class Report:
         self.feature_class_name, self.feature_shape, self.feature_type = self.report_details()
 
     def to_dataframe(self, sheet_name):
-        df = pd.read_excel(
-            io=self.source,
-            sheet_name=sheet_name,
-            index_col=0
-        )
+        try:
+            df = pd.read_excel(io=self.source, sheet_name=sheet_name, index_col=0)
+        except ValueError:
+            raise SpatialDataSubmissionFormError(
+                f"Sheet '{sheet_name}' not found in '{self.source}'. "
+                f"Check that the SDSF follows the expected template."
+            )
         df = df.where(pd.notnull(df), None)  # Remove NaN values with None
         df = df[pd.notnull(df.index)]  # Remove blank lines from index
         return df
@@ -53,7 +55,13 @@ class SDSFMetaData:
     def __init__(self, excel_path, sheet_name="SDSF"):
         self.source = excel_path
 
-        self.df = pd.read_excel(self.source, sheet_name=sheet_name)
+        try:
+            self.df = pd.read_excel(self.source, sheet_name=sheet_name)
+        except ValueError:
+            raise SpatialDataSubmissionFormError(
+                f"Sheet '{sheet_name}' not found in '{self.source}'. "
+                f"Check that the SDSF follows the expected template."
+            )
 
         self.name = self.get_name()
 
