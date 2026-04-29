@@ -66,30 +66,33 @@ class SDSFMetaData:
     def __repr__(self):
         return self.name
 
+    def _get_value_below_header(self, header: str):
+        matches = self.df.loc[self.df['Spatial Data Submission Form'] == header].index
+        if len(matches) == 0:
+            raise SpatialDataSubmissionFormError(
+                f"Expected header '{header}' not found in '{self.source}'."
+            )
+        return self.df.iloc[matches[0] + 1, 0]
+
     def get_description(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Description:'].index[0]
-        desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+        return self._get_value_below_header('Dataset Description:')
 
     def get_summary(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Purpose:'].index[0]
-        desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+        return self._get_value_below_header('Dataset Purpose:')
 
     def get_tags(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Tags:'].index[0]
-        tags = self.df.iloc[header_idx + 1, 0]  # row, col
-        return tags
+        return self._get_value_below_header('Dataset Tags:')
 
     def get_limitations(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Notes or Disclaimers:'].index[0]
-        limits = self.df.iloc[header_idx + 1, 0]  # row, col
-        return limits
+        return self._get_value_below_header('Notes or Disclaimers:')
 
     def get_name(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Name:'].index[0]
-        name = self.df.iloc[header_idx, 1]  # row, col
-        return f"METADATA: {name}"
+        matches = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Name:'].index
+        if len(matches) == 0:
+            raise SpatialDataSubmissionFormError(
+                f"Expected header 'Dataset Name:' not found in '{self.source}'."
+            )
+        return self.df.iloc[matches[0], 1]
 
 
 class FieldsReport(Report):
