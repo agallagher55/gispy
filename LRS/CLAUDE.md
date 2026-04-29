@@ -134,6 +134,86 @@ event_tables = [
 network_fields = "OBJECTID;FROMDATE;TODATE;ROUTEID;ROUTENAME;STR_NAME;STR_TYPE;MUN_CODE;GLOBALID"
 ```
 
+### `SDEADM.TRNLRS_trn_street_retired_VW`
+
+A database view used by **`NSCAF_update.py`** to expose retired street segments — rows from
+`TRNLRS_segmented_street_events` where `TO_DATE IS NOT NULL` (i.e. the segment has been retired
+from the LRS) but that no longer appear in the active street view `TRNLRS_TRN_STREET_VW`.
+
+**Definition:**
+
+```sql
+CREATE VIEW TRNLRS_trn_street_retired_VW AS
+SELECT
+    e.OBJECTID,
+    e.FCODE,
+    e.STR_NAME,
+    e.STR_TYPE,
+    e.ROUTENAME        AS FULL_NAME,
+    e.MUN_CODE,
+    e.FROM_STR,
+    e.TO_STR,
+    e.STR_DIR,
+    e.STR_STATUS,
+    e.ST_CLASS,
+    e.OWN,
+    e.MAINTENANCE,
+    e.DATE_ACCEPT,
+    e.COMMENT__2       AS STR_REM,
+    e.FLAG             AS FLAGS,
+    e.PSAB_CODE,
+    e.FDMID,
+    e.SYS_DATE,
+    e.ROUTE_ID,
+    e.FROM_LEFT,
+    e.TO_LEFT,
+    e.FROM_RIGHT,
+    e.TO_RIGHT,
+    e.OLD_FDMID,
+    e.GSA_LEFT,
+    e.GSA_RIGHT,
+    e.PAR_LEFT,
+    e.PAR_RIGHT,
+    e.STR_CODE_L,
+    e.STR_CODE_R,
+    e.ASSETID,
+    ea.MinAddDate      AS ADDDATE,
+    ea.MaxModDate      AS MODDATE,
+    e.SHAPE
+FROM sdeadm.TRNLRS_segmented_street_events e
+LEFT JOIN (
+    SELECT
+        ASSETID,
+        MIN(ADDDATE) AS MinAddDate,
+        MAX(MODDATE) AS MaxModDate
+    FROM SDEADM.E_ADDRESSRANGE
+    WHERE TODATE IS NULL
+      AND (GDB_IS_DELETE IS NULL OR GDB_IS_DELETE = 0)
+    GROUP BY ASSETID
+) ea ON e.ASSETID = ea.ASSETID
+WHERE e.TO_DATE   IS NOT NULL
+  AND e.FROM_DATE IS NOT NULL
+  AND e.FDMID     IS NOT NULL
+  AND e.ST_CLASS  IS NOT NULL
+  AND e.FROM_STR  IS NOT NULL
+  AND e.TO_STR    IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1
+      FROM SDEADM.TRNLRS_TRN_STREET_VW v
+      WHERE v.FDMID = e.FDMID
+  );
+```
+
+**Key logic:**
+- Joins `TRNLRS_segmented_street_events` (retired rows, `TO_DATE IS NOT NULL`) against
+  `E_ADDRESSRANGE` to pull `ADDDATE` / `MODDATE`.
+- The `NOT EXISTS` sub-select excludes any `FDMID` that is still present in the active street
+  view (`TRNLRS_TRN_STREET_VW`), so only truly-retired segments appear.
+- All mandatory attribute filters (`FDMID`, `ST_CLASS`, `FROM_STR`, `TO_STR`) mirror the
+  completeness requirements enforced by the QA checks below.
+
+---
+
 ### QA checks before updating the view (`trnlrs_street_view_checks`)
 
 All four are **critical** — any failure blocks the view update and sends a report email.
