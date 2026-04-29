@@ -104,9 +104,9 @@ class SDSFMetaData:
 
 
 class FieldsReport(Report):
-    
-    last_field_name = "GLOBALID"
+
     def __init__(self, excel_path, sheet_name="DATASET DETAILS"):
+        self.last_field_name = "GLOBALID"
         super().__init__(excel_path, sheet_name)
         self.field_details = self.field_info()
 
@@ -130,7 +130,7 @@ class FieldsReport(Report):
 
         if self.feature_type.upper() == "FEATURE CLASS":
             
-            FieldsReport.last_field_name = "SHAPE_Length"
+            self.last_field_name = "SHAPE_Length"
 
             if self.feature_shape.upper() == "POLYGON":
                 if "SHAPE_AREA" not in [str(x).upper() for x in df_index_values] or "SHAPE_LENGTH" not in [str(x).upper() for x in df_index_values]:
@@ -141,9 +141,9 @@ class FieldsReport(Report):
                     raise IndexError(f"ERROR: SDSF needs to have a SHAPE_LENGTH field.")
 
             elif self.feature_shape.upper() == "NOT APPLICABLE" or self.feature_shape.upper() == "POINT":
-                FieldsReport.last_field_name = "GLOBALID"
+                self.last_field_name = "GLOBALID"
 
-        df_field_details = self.df.loc["Alias":FieldsReport.last_field_name]
+        df_field_details = self.df.loc["Alias":self.last_field_name]
 
         df_field_details.reset_index(inplace=True)
 
