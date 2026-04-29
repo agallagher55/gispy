@@ -190,7 +190,7 @@ class DomainsReport(Report):
         # Check index for a mis-named SourceAccuracy field
         df_index = self.domain_df.index.tolist()
         for count, value in enumerate(df_index):
-            if type(value) == str and "SourceAccuracy" in value:
+            if isinstance(value, str) and "SourceAccuracy" in value:
                 df_index[count] = "SourceAccuracy"
 
         self.domain_df.index = df_index
