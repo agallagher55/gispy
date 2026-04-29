@@ -16,11 +16,13 @@ class Report:
         self.feature_class_name, self.feature_shape, self.feature_type = self.report_details()
 
     def to_dataframe(self, sheet_name):
-        df = pd.read_excel(
-            io=self.source,
-            sheet_name=sheet_name,
-            index_col=0
-        )
+        try:
+            df = pd.read_excel(io=self.source, sheet_name=sheet_name, index_col=0)
+        except ValueError:
+            raise SpatialDataSubmissionFormError(
+                f"Sheet '{sheet_name}' not found in '{self.source}'. "
+                f"Check that the SDSF follows the expected template."
+            )
         df = df.where(pd.notnull(df), None)  # Remove NaN values with None
         df = df[pd.notnull(df.index)]  # Remove blank lines from index
         return df
@@ -45,7 +47,7 @@ class Report:
         shape_type = df_feature_details["Shape Type"].values[0] or "Enterprise Geodatabase Table"
         feature_type = df_feature_details["Feature Type"].values[0]
 
-        return [feature_class_name, shape_type, feature_type]
+        return feature_class_name, shape_type, feature_type
 
 
 class SDSFMetaData:
@@ -53,7 +55,13 @@ class SDSFMetaData:
     def __init__(self, excel_path, sheet_name="SDSF"):
         self.source = excel_path
 
-        self.df = pd.read_excel(self.source, sheet_name=sheet_name)
+        try:
+            self.df = pd.read_excel(self.source, sheet_name=sheet_name)
+        except ValueError:
+            raise SpatialDataSubmissionFormError(
+                f"Sheet '{sheet_name}' not found in '{self.source}'. "
+                f"Check that the SDSF follows the expected template."
+            )
 
         self.name = self.get_name()
 
@@ -66,36 +74,39 @@ class SDSFMetaData:
     def __repr__(self):
         return self.name
 
+    def _get_value_below_header(self, header: str):
+        matches = self.df.loc[self.df['Spatial Data Submission Form'] == header].index
+        if len(matches) == 0:
+            raise SpatialDataSubmissionFormError(
+                f"Expected header '{header}' not found in '{self.source}'."
+            )
+        return self.df.iloc[matches[0] + 1, 0]
+
     def get_description(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Description:'].index[0]
-        desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+        return self._get_value_below_header('Dataset Description:')
 
     def get_summary(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Purpose:'].index[0]
-        desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+        return self._get_value_below_header('Dataset Purpose:')
 
     def get_tags(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Tags:'].index[0]
-        tags = self.df.iloc[header_idx + 1, 0]  # row, col
-        return tags
+        return self._get_value_below_header('Dataset Tags:')
 
     def get_limitations(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Notes or Disclaimers:'].index[0]
-        limits = self.df.iloc[header_idx + 1, 0]  # row, col
-        return limits
+        return self._get_value_below_header('Notes or Disclaimers:')
 
     def get_name(self):
-        header_idx = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Name:'].index[0]
-        name = self.df.iloc[header_idx, 1]  # row, col
-        return f"METADATA: {name}"
+        matches = self.df.loc[self.df['Spatial Data Submission Form'] == 'Dataset Name:'].index
+        if len(matches) == 0:
+            raise SpatialDataSubmissionFormError(
+                f"Expected header 'Dataset Name:' not found in '{self.source}'."
+            )
+        return self.df.iloc[matches[0], 1]
 
 
 class FieldsReport(Report):
-    
-    last_field_name = "GLOBALID"
+
     def __init__(self, excel_path, sheet_name="DATASET DETAILS"):
+        self.last_field_name = "GLOBALID"
         super().__init__(excel_path, sheet_name)
         self.field_details = self.field_info()
 
@@ -111,7 +122,7 @@ class FieldsReport(Report):
         subtype_field_df = fields_df[fields_df["Subtype Field"].notnull()]
 
         if not subtype_field_df.empty:
-            subtype_fields = (x for x in subtype_field_df["Field Name"])
+            subtype_fields = list(subtype_field_df["Field Name"])
             return subtype_fields
 
     def field_info(self):
@@ -119,7 +130,7 @@ class FieldsReport(Report):
 
         if self.feature_type.upper() == "FEATURE CLASS":
             
-            FieldsReport.last_field_name = "SHAPE_Length"
+            self.last_field_name = "SHAPE_Length"
 
             if self.feature_shape.upper() == "POLYGON":
                 if "SHAPE_AREA" not in [str(x).upper() for x in df_index_values] or "SHAPE_LENGTH" not in [str(x).upper() for x in df_index_values]:
@@ -130,9 +141,9 @@ class FieldsReport(Report):
                     raise IndexError(f"ERROR: SDSF needs to have a SHAPE_LENGTH field.")
 
             elif self.feature_shape.upper() == "NOT APPLICABLE" or self.feature_shape.upper() == "POINT":
-                FieldsReport.last_field_name = "GLOBALID"
+                self.last_field_name = "GLOBALID"
 
-        df_field_details = self.df.loc["Alias":FieldsReport.last_field_name]
+        df_field_details = self.df.loc["Alias":self.last_field_name]
 
         df_field_details.reset_index(inplace=True)
 
@@ -187,7 +198,7 @@ class DomainsReport(Report):
         # Check index for a mis-named SourceAccuracy field
         df_index = self.domain_df.index.tolist()
         for count, value in enumerate(df_index):
-            if type(value) == str and "SourceAccuracy" in value:
+            if isinstance(value, str) and "SourceAccuracy" in value:
                 df_index[count] = "SourceAccuracy"
 
         self.domain_df.index = df_index
@@ -259,11 +270,8 @@ class DomainsReport(Report):
     
                 domain_df.dropna(inplace=True)
                 
-                # Strip code, desc values
-                for row in domain_df.itertuples():
-                    code = str(row[1]).strip() if isinstance(row[1], str) else row[1]
-                    desc = str(row[2]).strip() if isinstance(row[2], str) else row[2]
-                
+                domain_df = domain_df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
+
                 # Clean
                 # Remove any domain dataframes with empty rows
                 num_df_rows = len(domain_df.index)
