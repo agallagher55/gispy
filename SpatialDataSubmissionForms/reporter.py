@@ -111,7 +111,7 @@ class FieldsReport(Report):
         subtype_field_df = fields_df[fields_df["Subtype Field"].notnull()]
 
         if not subtype_field_df.empty:
-            subtype_fields = (x for x in subtype_field_df["Field Name"])
+            subtype_fields = list(subtype_field_df["Field Name"])
             return subtype_fields
 
     def field_info(self):
@@ -259,11 +259,8 @@ class DomainsReport(Report):
     
                 domain_df.dropna(inplace=True)
                 
-                # Strip code, desc values
-                for row in domain_df.itertuples():
-                    code = str(row[1]).strip() if isinstance(row[1], str) else row[1]
-                    desc = str(row[2]).strip() if isinstance(row[2], str) else row[2]
-                
+                domain_df = domain_df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
+
                 # Clean
                 # Remove any domain dataframes with empty rows
                 num_df_rows = len(domain_df.index)
