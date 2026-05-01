@@ -127,6 +127,19 @@ After the service comes back online, the new name will appear in the dropdown.
 
 ---
 
+## Step 7 — Add user to Portal and AGOL groups
+
+The SDE domain controls the dropdown values, but the user also needs group
+membership to access the application itself.
+
+1. **Portal** — add the user to the relevant editor group (e.g. `EncroachmentEditors`).
+2. **AGOL** — add the user to the **RoadWorks Group** in ArcGIS Online.
+
+Without these, the user's name will appear in the dropdown but they will not
+have access to open or edit records in the application.
+
+---
+
 ## Notes
 
 - Always run one environment at a time. Never uncomment multiple environments in
