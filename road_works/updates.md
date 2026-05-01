@@ -103,8 +103,26 @@ for dbs in [
 ]:
 ```
 
-Run and verify the log. The user's name should now appear in the dropdown in the
-live application.
+Run and verify the log.
+
+---
+
+## Step 6 — Restart the ArcGIS Server service
+
+ArcGIS Server caches the map service definition (including domain values) at
+start-up, so the domain change is not visible in the application until the
+relevant service is restarted. Do this after each environment's script run.
+
+Restart the appropriate service in the **Editing** folder on ArcGIS Server
+Manager for the environment you just updated:
+
+| Layer updated               | Service to restart  |
+|-----------------------------|---------------------|
+| Encroachments               | `Encroachment`      |
+| Street Closures             | `StreetClosure`     |
+| Sidewalk Repair Closures    | `SidewalkRepair`    |
+
+After the service comes back online, the new name will appear in the dropdown.
 
 ---
 
