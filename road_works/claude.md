@@ -22,7 +22,8 @@ selectable value in the relevant attribute field.
 | Sidewalk Repair Closures      | `SidewalkRepair`      | TBD                                |
 | Encroachments                 | `Encroachment`        | `SDEADM.TRN_encroachment`          |
 
-All services live in the **Editing** folder on the ArcGIS Server.
+All services live in the **Editing** folder on the ArcGIS Server:
+`https://gis-web-int.halifax.ca/extn/manager/#f=Editing`
 
 ---
 
