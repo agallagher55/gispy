@@ -18,8 +18,8 @@ selectable value in the relevant attribute field.
 | App layer                     | ArcGIS Server service | Known SDE feature class            |
 |-------------------------------|-----------------------|------------------------------------|
 | Street Closures               | `StreetClosure`       | `SDEADM.TRN_street_closure`        |
-| Sidewalk Closures/Disruptions | TBD                   | TBD                                |
-| Sidewalk Repair Closures      | `SidewalkRepair`      | TBD                                |
+| Sidewalk Closures/Disruptions | `SidewalkRepair`      | `SDEADM.TRN_encroachment`          |
+| Sidewalk Repair Closures      | `SidewalkRepair`      | `SDEADM.TRN_encroachment`          |
 | Encroachments                 | `Encroachment`        | `SDEADM.TRN_encroachment`          |
 
 All services live in the **Editing** folder on the ArcGIS Server:
