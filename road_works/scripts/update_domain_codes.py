@@ -5,7 +5,6 @@ import os
 
 from gispy import (
     domains,
-    utils
 )
 
 from hrmutils.HRMutils import setupLog
@@ -35,7 +34,8 @@ logger.addHandler(console_handler)  # print logs to console
 CURRENT_DIR = getcwd()
 
 ADD_CODE_VALUES = {
-
+    "TRN_RDM_RoadClosureEditors": {},
+    "TRN_RDM_RoadClosureApprover": {},
     "TRN_RDM_EncroachEditors": {
         'Kayode Taiwo': "Kayode Taiwo",
     },
@@ -54,16 +54,12 @@ if __name__ == "__main__":
 
     logger.info(f"PC Name: {PC_NAME}\n\tRunning from: {run_from}...")
 
-    local_gdb = utils.create_fgdb(out_folder_path=CURRENT_DIR, out_name="scratch.gdb")
-
     for dbs in [
-        # [local_gdb, ],
 
-        # [
-            # config.get("SERVER", "dev_rw"),
-            # config.get("SERVER", "dev_ro"),
-            # config.get("SERVER", "dev_web_ro_gdb"),
-        # ],
+        [
+            config.get("SERVER", "dev_rw"),
+            config.get("SERVER", "dev_ro"),
+        ],
 
         # [
         #     config.get("SERVER", "qa_rw"),
@@ -71,11 +67,11 @@ if __name__ == "__main__":
         #     config.get("SERVER", "qa_web_ro_gdb"),
         # ],
 
-        [
-            config.get("SERVER", "prod_rw"),
-            config.get("SERVER", "prod_ro"),
-            config.get("SERVER", "prod_web_ro_gdb"),
-        ],
+        # [
+        #     config.get("SERVER", "prod_rw"),
+        #     config.get("SERVER", "prod_ro"),
+        #     config.get("SERVER", "prod_web_ro_gdb"),
+        # ],
 
     ]:
 
