@@ -1,0 +1,74 @@
+12-13-2024 08:59:51 - INFO: PC Name: MSGISAPPQ204
+	Running from: SERVER...
+12-13-2024 08:59:53 - INFO: ====================================================================================================
+12-13-2024 08:59:53 - INFO: Processing dbs: E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde...
+12-13-2024 08:59:53 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 08:59:53 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde
+12-13-2024 08:59:53 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 08:59:56 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:00:04 - INFO: Sorting domain...
+12-13-2024 09:02:22 - INFO: PC Name: MSGISAPPQ204
+	Running from: SERVER...
+12-13-2024 09:02:22 - INFO: ====================================================================================================
+12-13-2024 09:02:22 - INFO: Processing dbs: E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde...
+12-13-2024 09:02:22 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:02:22 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\Dev\dev_RW_sdeadm.sde
+12-13-2024 09:02:22 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:02:26 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:02:34 - INFO: Sorting domain...
+12-13-2024 09:02:50 - INFO: PC Name: MSGISAPPQ204
+	Running from: SERVER...
+12-13-2024 09:02:51 - INFO: ====================================================================================================
+12-13-2024 09:02:51 - INFO: Processing dbs: E:\HRM\Scripts\SDE\SQL\Dev\dev_RO_sdeadm.sde...
+12-13-2024 09:02:51 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:02:51 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\Dev\dev_RO_sdeadm.sde
+12-13-2024 09:02:51 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:02:54 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:03:05 - INFO: Sorting domain...
+12-13-2024 09:03:23 - INFO: PC Name: MSGISAPPQ204
+	Running from: SERVER...
+12-13-2024 09:03:23 - INFO: ====================================================================================================
+12-13-2024 09:03:23 - INFO: Processing dbs: \\msfs06\GISApp\AGS_Dev\fgdbs\web_RO.gdb...
+12-13-2024 09:03:23 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:03:23 - INFO: DATABASE: \\msfs06\GISApp\AGS_Dev\fgdbs\web_RO.gdb
+12-13-2024 09:03:23 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:03:26 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:03:30 - INFO: Sorting domain...
+12-13-2024 09:05:13 - INFO: PC Name: MSGISAPPQ204
+	Running from: SERVER...
+12-13-2024 09:05:13 - INFO: ====================================================================================================
+12-13-2024 09:05:13 - INFO: Processing dbs: E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde, E:\HRM\Scripts\SDE\SQL\qa_RO_sdeadm.sde, \\msfs06\GISApp\AGS_QA\fgdbs\web_RO.gdb...
+12-13-2024 09:05:13 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:05:13 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\qa_RW_sdeadm.sde
+12-13-2024 09:05:13 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:05:17 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:05:26 - INFO: Sorting domain...
+12-13-2024 09:05:28 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:05:28 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\qa_RO_sdeadm.sde
+12-13-2024 09:05:28 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:05:31 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:05:42 - INFO: Sorting domain...
+12-13-2024 09:05:47 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:05:47 - INFO: DATABASE: \\msfs06\GISApp\AGS_QA\fgdbs\web_RO.gdb
+12-13-2024 09:05:47 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:05:49 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:05:52 - INFO: Sorting domain...
+12-13-2024 09:06:46 - INFO: PC Name: MSGISAPPQ204
+	Running from: SERVER...
+12-13-2024 09:06:46 - INFO: ====================================================================================================
+12-13-2024 09:06:46 - INFO: Processing dbs: E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde, E:\HRM\Scripts\SDE\SQL\Prod\prod_RO_sdeadm.sde, \\msfs06\GISApp\AGS_Prod\fgdbs\web_RO.gdb...
+12-13-2024 09:06:46 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:06:46 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\Prod\prod_RW_sdeadm.sde
+12-13-2024 09:06:46 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:06:50 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:06:59 - INFO: Sorting domain...
+12-13-2024 09:07:01 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:07:01 - INFO: DATABASE: E:\HRM\Scripts\SDE\SQL\Prod\prod_RO_sdeadm.sde
+12-13-2024 09:07:01 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:07:05 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:07:15 - INFO: Sorting domain...
+12-13-2024 09:07:20 - INFO: ----------------------------------------------------------------------------------------------------
+12-13-2024 09:07:20 - INFO: DATABASE: \\msfs06\GISApp\AGS_Prod\fgdbs\web_RO.gdb
+12-13-2024 09:07:20 - INFO: DOMAIN: TRN_RDM_EncroachEditors
+12-13-2024 09:07:21 - INFO: 1/1) Domain and Code: Kayode Taiwo & Kayode Taiwo
+12-13-2024 09:07:23 - INFO: Sorting domain...
