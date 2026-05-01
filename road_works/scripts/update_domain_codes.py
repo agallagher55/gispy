@@ -7,7 +7,7 @@ from gispy import (
     domains,
 )
 
-from hrmutils.HRMutils import setupLog
+from HRMutils import setupLog
 
 from configparser import ConfigParser
 
@@ -34,10 +34,10 @@ logger.addHandler(console_handler)  # print logs to console
 CURRENT_DIR = getcwd()
 
 ADD_CODE_VALUES = {
-    "TRN_RDM_RoadClosureEditors": {},
-    "TRN_RDM_RoadClosureApprover": {},
+    # "TRN_RDM_RoadClosureEditors": {},
+    # "TRN_RDM_RoadClosureApprover": {},
     "TRN_RDM_EncroachEditors": {
-        'Kayode Taiwo': "Kayode Taiwo",
+        'Billy Rhude': "Billy Rhude",
     },
 
 
@@ -56,10 +56,10 @@ if __name__ == "__main__":
 
     for dbs in [
 
-        [
-            config.get("SERVER", "dev_rw"),
-            config.get("SERVER", "dev_ro"),
-        ],
+        # [
+        #     config.get("SERVER", "dev_rw"),
+        #     config.get("SERVER", "dev_ro"),
+        # ],
 
         # [
         #     config.get("SERVER", "qa_rw"),
@@ -67,11 +67,11 @@ if __name__ == "__main__":
         #     config.get("SERVER", "qa_web_ro_gdb"),
         # ],
 
-        # [
-        #     config.get("SERVER", "prod_rw"),
-        #     config.get("SERVER", "prod_ro"),
-        #     config.get("SERVER", "prod_web_ro_gdb"),
-        # ],
+        [
+            config.get("SERVER", "prod_rw"),
+            config.get("SERVER", "prod_ro"),
+            config.get("SERVER", "prod_web_ro_gdb"),
+        ],
 
     ]:
 
@@ -85,22 +85,6 @@ if __name__ == "__main__":
                     logger.info("-" * 100)
                     logger.info(f"DATABASE: {db}")
 
-                    if db == local_gdb:
-
-                        # Check for domains in local workspace
-                        required_domains = set(list(ADD_CODE_VALUES.keys()) + list(REMOVE_CODE_VALUES.keys()))
-                        domain_present, unfound_domains = domains.domains_in_db(local_gdb, required_domains)
-
-                        if unfound_domains:
-                            prod_sde = config.get("SERVER", "prod_rw") if "APP" in PC_NAME else config.get("LOCAL",
-                                                                                                           "prod_rw")
-
-                            domains.transfer_domains(
-                                unfound_domains,
-                                local_gdb,
-                                from_workspace=prod_sde
-                            )
-
                     for domain in REMOVE_CODE_VALUES:
 
                         remove_codes = REMOVE_CODE_VALUES[domain]
@@ -112,7 +96,7 @@ if __name__ == "__main__":
                         logger.info(f"DOMAIN: {domain}")
 
                         # Check that domain is found in database connection
-                        domain_found, unfound_domains = domains.domains_in_db(db, [domain])
+                        domain_found, unfound_domains, db_domains = domains.domains_in_db(db, [domain])
 
                         if not domain_found:
                             raise ValueError(
@@ -122,7 +106,7 @@ if __name__ == "__main__":
                         for count, code_value in enumerate(add_code_values, start=1):
                             new_value = add_code_values[code_value]
 
-                            logger.info(f"{count}/{len(add_code_values)}) Domain and Code: {code_value} & {new_value}")
+                            print(f"\n{count}/{len(add_code_values)}) Domain and Code: {code_value} & {new_value}")
                             domains.add_code_value(db, domain, code_value, new_value)
 
                         logger.info(f"Sorting domain...")
