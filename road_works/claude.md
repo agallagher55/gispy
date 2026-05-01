@@ -15,14 +15,74 @@ selectable value in the relevant attribute field.
 
 ## Application layers and backing services
 
-| App layer                     | ArcGIS Server service | Known SDE feature class          |
-|-------------------------------|-----------------------|----------------------------------|
-| Street Closures               | `StreetClosure`       | TBD                              |
-| Sidewalk Closures/Disruptions | TBD                   | TBD                              |
-| Sidewalk Repair Closures      | `SidewalkRepair`      | TBD                              |
-| Encroachments                 | `Encroachment`        | `SDEADM.TRN_ENCROACHMENT`        |
+| App layer                     | ArcGIS Server service | Known SDE feature class            |
+|-------------------------------|-----------------------|------------------------------------|
+| Street Closures               | `StreetClosure`       | `SDEADM.TRN_street_closure`        |
+| Sidewalk Closures/Disruptions | TBD                   | TBD                                |
+| Sidewalk Repair Closures      | `SidewalkRepair`      | TBD                                |
+| Encroachments                 | `Encroachment`        | `SDEADM.TRN_encroachment`          |
 
 All services live in the **Editing** folder on the ArcGIS Server.
+
+---
+
+## Feature class field schemas
+
+### `SDEADM.TRN_encroachment`
+
+| Field Name   | Alias            | Type      | Allow NULL | Domain                   | Length |
+|--------------|------------------|-----------|------------|--------------------------|--------|
+| OBJECTID     | OBJECTID         | Object ID |            |                          |        |
+| TYPE         | Type             | Text      |            | TRN_RDM_EncroachTypes    | 50     |
+| PERMIT_NO    | Permit Number    | Text      |            |                          | 50     |
+| REVIEWED_BY  | Reviewed By      | Text      |            | TRN_RDM_EncroachEditors  | 50     |
+| START_DATE   | Start Date       | Date      | ✓          |                          |        |
+| END_DATE     | End Date         | Date      | ✓          |                          |        |
+| COMMENTS     | Public Comments  | Text      | ✓          |                          | 255    |
+| ATTACHMENTS  | Attachments      | Text      | ✓          |                          | 255    |
+| ADDBY        | Add By           | Text      | ✓          |                          | 32     |
+| ADDDATE      | CreationDate     | Date      | ✓          |                          |        |
+| MODBY        | Modified By      | Text      | ✓          |                          | 32     |
+| MODDATE      | EditDate         | Date      | ✓          |                          |        |
+| GLOBALID     | GLOBALID         | Global ID |            |                          |        |
+| REMARKS      | Internal Remarks | Text      | ✓          |                          | 255    |
+| STREET_NAME  | Street Name      | Text      |            | TRN_StreetName           | 50     |
+| FROM_STR     | From Street      | Text      |            | TRN_StreetName           | 50     |
+| TO_STR       | To Street        | Text      |            | TRN_StreetName           | 50     |
+| RDMID        | RDMID            | Long      | ✓          |                          |        |
+| SHAPE        | SHAPE            | Geometry  | ✓          |                          |        |
+
+### `SDEADM.TRN_street_closure`
+
+| Field Name       | Alias             | Type      | Allow NULL | Domain                      | Default     | Length |
+|------------------|-------------------|-----------|------------|-----------------------------|-------------|--------|
+| OBJECTID         | OBJECTID          | Object ID |            |                             |             |        |
+| CLOSURE_TYPE     | Closure Type      | Text      |            | TRN_RDM_RoadClosureType     |             | 50     |
+| CLOSURE_STAGE    | Closure Stage     | Text      |            | TRN_RDM_RoadClosureStage    | In Progress | 50     |
+| START_DATE       | Start Date        | Date      | ✓          |                             |             |        |
+| END_DATE         | EndDate           | Date      | ✓          |                             |             |        |
+| START_TIME       | StartTime         | Text      | ✓          |                             |             | 50     |
+| END_TIME         | EndTime           | Text      | ✓          |                             |             | 50     |
+| ALT_START_DATE   | Alt Start Date    | Date      | ✓          |                             |             |        |
+| ALT_END_DATE     | Alt End Date      | Date      | ✓          |                             |             |        |
+| REOPEN_EVENINGS  | Re-Open Evening   | Text      | ✓          | TRN_RDM_YesNo               |             | 50     |
+| REOPEN_WEEKENDS  | Re-Open Weekends  | Text      | ✓          | TRN_RDM_YesNo               |             | 50     |
+| PERMIT_NO        | Permit Number     | Text      | ✓          |                             |             | 100    |
+| APPLICATION_DATE | Application Date  | Date      | ✓          |                             |             |        |
+| REVIEWED_BY      | Reviewed By       | Text      | ✓          | TRN_RDM_RoadClosureEditors  |             | 50     |
+| REVIEW_DATE      | Review Date       | Date      | ✓          |                             |             |        |
+| APPROVED_BY      | Approved By       | Text      | ✓          | TRN_RDM_RoadClosureApprover |             | 50     |
+| APPROVED_DATE    | Approved Date     | Date      | ✓          |                             |             |        |
+| REQUEST_BY       | Request By        | Text      | ✓          |                             |             | 100    |
+| CHARGE_TO        | Charge To         | Text      | ✓          |                             |             | 100    |
+| DETOUR_URL       | Detour Link       | Text      | ✓          |                             |             | 255    |
+| COMMENTS         | Public Comments   | Text      | ✓          |                             |             | 255    |
+| ATTACHMENTS      | Attachments       | Text      | ✓          |                             |             | 255    |
+| ADDBY            | Add By            | Text      | ✓          |                             |             | 32     |
+| ADDDATE          | Add Date          | Date      | ✓          |                             |             |        |
+| MODBY            | Modified By       | Text      | ✓          |                             |             | 32     |
+| MODDATE          | Modified Date     | Date      | ✓          |                             |             |        |
+| GLOBALID         | GLOBALID          | Global ID |            |                             |             |        |
 
 ---
 
