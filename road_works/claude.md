@@ -92,11 +92,11 @@ All services live in the **Editing** folder on the ArcGIS Server:
 Access is controlled by coded-value domains whose names end in **`Editors`** or
 **`Approver`**. These domains are assigned to specific fields on the feature classes.
 
-| Domain                       | Controls                                   |
-|------------------------------|--------------------------------------------|
-| `TRN_RDM_EncroachEditors`    | Who can be recorded as an encroachment editor   |
-| `TRN_RDM_RoadClosureEditors` | Who can be recorded as a road closure editor    |
-| `TRN_RDM_RoadClosureApprover`| Who can approve road closures                   |
+| Domain                       | Controls                                                 |
+|------------------------------|----------------------------------------------------------|
+| `TRN_RDM_EncroachEditors`    | Who can be recorded as an encroachment editor            |
+| `TRN_RDM_RoadClosureEditors` | Who can be recorded as a road/sidewalk closure editor    |
+| `TRN_RDM_RoadClosureApprover`| Who can approve road closures                            |
 
 **Domain code convention:** code and description are always identical and use the
 person's full name.
