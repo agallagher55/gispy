@@ -132,7 +132,7 @@ After the service comes back online, the new name will appear in the dropdown.
 The SDE domain controls the dropdown values, but the user also needs group
 membership to access the application itself.
 
-1. **Portal** — add the user to the relevant editor group (e.g. `EncroachmentEditors`).
+1. **Portal** — add the user to the **Road Safety Editors** group.
 2. **AGOL** — add the user to the **RoadWorks Group** in ArcGIS Online.
 
 Without these, the user's name will appear in the dropdown but they will not
