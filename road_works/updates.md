@@ -114,7 +114,8 @@ start-up, so the domain change is not visible in the application until the
 relevant service is restarted. Do this after each environment's script run.
 
 Restart the appropriate service in the **Editing** folder on ArcGIS Server
-Manager for the environment you just updated:
+Manager for the environment you just updated. The Editing folder can be accessed
+at: `https://gis-web-int.halifax.ca/extn/manager/#f=Editing`
 
 | Layer updated               | Service to restart  |
 |-----------------------------|---------------------|
