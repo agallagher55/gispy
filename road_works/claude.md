@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **RoadWorks Map - Editor App**, https://hrm.maps.arcgis.com/apps/webappviewer/index.html?id=c00fdee3e1614cc3ac3e19a1dde6e5a9, is an ArcGIS Web AppBuilder application that allows
+The [**RoadWorks Map - Editor App**](https://hrm.maps.arcgis.com/apps/webappviewer/index.html?id=c00fdee3e1614cc3ac3e19a1dde6e5a9), is an ArcGIS Web AppBuilder application that allows
 permissioned HRM staff to draw and attribute road-related closures on a map. The features
 they create are stored in the enterprise geodatabase (SDE) and served through dedicated
 ArcGIS Server map services in the **Editing** folder.
@@ -114,8 +114,10 @@ This is the standard script for adding or removing users from RoadWorks domains.
 
 ```python
 ADD_CODE_VALUES = {
-    "TRN_RDM_RoadClosureEditors": {
-        "Jane Smith": "Jane Smith",
+    "TRN_RDM_RoadClosureEditors": {},
+    "TRN_RDM_RoadClosureApprover": {},
+    "TRN_RDM_EncroachEditors": {
+        'Kayode Taiwo': "Kayode Taiwo",
     },
 }
 
