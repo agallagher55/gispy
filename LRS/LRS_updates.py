@@ -558,21 +558,27 @@ def append_feature(input_feature, target_feature, sde_conn):
 
     logger.info(f"Updating '{target_feature}' from '{input_feature}'...")
 
-    feature_name = arcpy.Describe(target_feature).name
-    target_feature = os.path.join(sde_conn, feature_name)
-
     with arcpy.EnvManager(preserveGlobalIds=True, workspace=sde_conn):
 
-        # Truncate RO
-        arcpy.TruncateTable_management(target_feature)
-        logger.info(f"Truncated {target_feature}.")
+        if not arcpy.Exists(target_feature):
+            # First run: feature class doesn't exist yet — create it from source
+            logger.info(f"'{target_feature}' does not exist — creating from source...")
+            arcpy.CopyFeatures_management(input_feature, target_feature)
+            logger.info(arcpy.GetMessages())
+            arcpy.ChangePrivileges_management(target_feature, user="PUBLIC", View="GRANT")
+            logger.info(f"Granted PUBLIC VIEW on {target_feature}")
+        else:
+            feature_name = arcpy.Describe(target_feature).name
+            target_feature = os.path.join(sde_conn, feature_name)
 
-        # Load
-        arcpy.Append_management(
-            inputs=input_feature,
-            target=target_feature,
-            schema_type="NO_TEST"
-        )
+            arcpy.TruncateTable_management(target_feature)
+            logger.info(f"Truncated {target_feature}.")
+
+            arcpy.Append_management(
+                inputs=input_feature,
+                target=target_feature,
+                schema_type="NO_TEST"
+            )
 
         return True
 
