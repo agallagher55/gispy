@@ -354,7 +354,7 @@ class DynSegFeature:
                 MIN(ADDBY)   AS AddBy,
                 MAX(MODDATE) AS MaxModDate,
                 MAX(MODBY)   AS ModBy
-            FROM SDEADM.E_SpeedLimit_Neighbourhood
+            FROM SDEADM.E_SpeedLimit
             WHERE TODATE IS NULL
               AND (GDB_IS_DELETE IS NULL OR GDB_IS_DELETE = 0)
             GROUP BY ROUTEID
