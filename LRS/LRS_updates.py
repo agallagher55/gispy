@@ -273,9 +273,7 @@ class DynSegFeature:
 
     def update_speed_limit_neighbourhood_segmentation(
             self,
-            segmented_feature_name: str = SDE_SPEED_LIMIT_DYN_SEG_FEATURE_NAME,
-            neighbourhood_event_name: str = "SDEADM.E_SpeedLimit_Neighbourhood",
-    ):
+            segmented_feature_name: str = SDE_SPEED_LIMIT_DYN_SEG_FEATURE_NAME    ):
         """Create a dynamic segmentation feature for speed limit neighbourhood review.
 
         The main street dynamic segmentation is intentionally left unchanged.
@@ -287,14 +285,6 @@ class DynSegFeature:
 
         segmented_feature = os.path.join(self.sde_workspace, segmented_feature_name)
         event_tables = self.speed_limit_neighbourhood_event_tables
-
-        if neighbourhood_event_name != "SDEADM.E_SpeedLimit_Neighbourhood":
-
-            event_tables = [
-                rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_StreetClass',
-                rf'{self.sde_workspace}\SDEADM.TRNLRS\SDEADM.E_SpeedLimit',
-                rf'{self.sde_workspace}\SDEADM.TRNLRS\{neighbourhood_event_name}',
-            ]
 
         try:
 
@@ -325,7 +315,6 @@ class DynSegFeature:
 
     def update_speed_limit_neighbourhood(
             self,
-            segmented_feature_name: str = SDE_SPEED_LIMIT_DYN_SEG_FEATURE_NAME,
             out_feature: str = SPEED_LIMIT_NEIGHBOURHOOD_FEATURE_NAME
     ):
         """Create the publishable speed-limit neighbourhood feature.
@@ -341,15 +330,15 @@ class DynSegFeature:
         query = f"""
         SELECT
             e.OBJECTID,
-            e.ROUTEID AS ROUTE_ID,
+            e.ROUTEID,
             e.STR_NAME,
             e.ROUTENAME AS FULL_NAME,
-            e.ST_CLASS AS STR_CLASS,
+            e.ST_CLASS,
             e.SPEED,
             e.REVIEW_STAT,
             e.DATE_EFFECTIVE,
             e.SHAPE
-        FROM {segmented_feature_name} e
+        FROM {SDE_SPEED_LIMIT_DYN_SEG_FEATURE_NAME} e
         WHERE e.TO_DATE IS NULL
         """
 
