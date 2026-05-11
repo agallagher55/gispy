@@ -943,6 +943,24 @@ if __name__ == "__main__":
                     # Update RO feature from RW feature
                     append_feature(rw_tbl, ro_tbl, SDEADM_RO)
 
+        ###################################################################################
+        # Speed Limit Neighbourhood Segmentation
+        ###################################################################################
+
+        sde_speed_limit_rw = os.path.join(SDEADM_RW, f"SDEADM.{SPEED_LIMIT_NEIGHBOURHOOD_FEATURE_NAME}")
+        sde_speed_limit_ro = os.path.join(SDEADM_RO, f"SDEADM.{SPEED_LIMIT_NEIGHBOURHOOD_FEATURE_NAME}")
+
+        logger.info("Updating speed limit neighbourhood segmentation...")
+        segmented_speed_limit = dyn_seg_feature_new.update_speed_limit_neighbourhood_segmentation()
+
+        if segmented_speed_limit:
+            logger.info("Updating speed limit neighbourhood view feature...")
+            updated = dyn_seg_feature_new.update_speed_limit_neighbourhood(out_feature=sde_speed_limit_rw)
+
+            if updated:
+                logger.info("Updating RO speed limit neighbourhood feature...")
+                append_feature(sde_speed_limit_rw, sde_speed_limit_ro, SDEADM_RO)
+
     except LicenseError:
         run_error_processing(
             "Unable to checkout Location Referencing License."
