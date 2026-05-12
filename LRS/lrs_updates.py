@@ -74,7 +74,151 @@ def run_error_processing(error_message):
     # )
 
 
-def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: float) -> dict:
+def export_segment_images(dyn_seg_feature: str, null_route_ids: list, output_dir: str) -> list:
+    """Generate PNG map images for segments with null FDMIDs.
+
+    Produces one overview PNG (all affected routes highlighted in red over
+    nearby context streets) and one close-up PNG per affected route.
+
+    Returns a list of created image file paths, or an empty list if
+    matplotlib is unavailable or no geometry is found.
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import matplotlib.lines as mlines
+    except ImportError:
+        logger.warning("matplotlib not available — skipping segment image export")
+        return []
+
+    if not null_route_ids:
+        return []
+
+    route_id_set = set(null_route_ids)
+    safe_ids = "', '".join(r.replace("'", "''") for r in null_route_ids)
+    where_null = f"TO_DATE IS NULL AND ROUTE_ID IN ('{safe_ids}')"
+
+    # Collect geometry for the affected segments
+    null_geoms = {}  # route_id -> {"coords": [[...]], "routename": str}
+    with arcpy.da.SearchCursor(
+        dyn_seg_feature, ["ROUTE_ID", "ROUTENAME", "SHAPE@"], where_null
+    ) as cursor:
+        for route_id, routename, geom in cursor:
+            if geom is None:
+                continue
+            coords = [
+                [(pt.X, pt.Y) for pt in part if pt is not None]
+                for part in geom
+            ]
+            coords = [c for c in coords if len(c) >= 2]
+            if coords:
+                null_geoms[route_id] = {
+                    "coords": coords,
+                    "routename": routename or route_id,
+                }
+
+    if not null_geoms:
+        logger.warning("No geometry found for null FDMID segments — skipping image export")
+        return []
+
+    # Bounding box of all affected segments, used to limit context loading
+    all_xs = [x for s in null_geoms.values() for part in s["coords"] for x, _ in part]
+    all_ys = [y for s in null_geoms.values() for part in s["coords"] for _, y in part]
+    min_x, max_x = min(all_xs), max(all_xs)
+    min_y, max_y = min(all_ys), max(all_ys)
+    context_buffer = 2000  # metres
+
+    # Load nearby context segments for background reference
+    context_geoms = []
+    with arcpy.da.SearchCursor(
+        dyn_seg_feature, ["ROUTE_ID", "SHAPE@"], "TO_DATE IS NULL"
+    ) as cursor:
+        for route_id, geom in cursor:
+            if geom is None or route_id in route_id_set:
+                continue
+            ext = geom.extent
+            if (
+                ext.XMax < min_x - context_buffer
+                or ext.XMin > max_x + context_buffer
+                or ext.YMax < min_y - context_buffer
+                or ext.YMin > max_y + context_buffer
+            ):
+                continue
+            for part in geom:
+                coords = [(pt.X, pt.Y) for pt in part if pt is not None]
+                if len(coords) >= 2:
+                    context_geoms.append(coords)
+
+    image_files = []
+
+    # --- Overview: all null FDMID segments ---
+    fig, ax = plt.subplots(figsize=(12, 8))
+    ax.set_facecolor('#f5f5f5')
+    for coords in context_geoms:
+        xs, ys = zip(*coords)
+        ax.plot(xs, ys, color='#cccccc', linewidth=0.5, zorder=1)
+    for info in null_geoms.values():
+        for part_coords in info["coords"]:
+            xs, ys = zip(*part_coords)
+            ax.plot(xs, ys, color='red', linewidth=2.5, zorder=2)
+    null_handle = mlines.Line2D([], [], color='red', linewidth=2.5, label='Null FDMID segment')
+    ax.legend(handles=[null_handle], loc='lower right', fontsize=8)
+    ax.set_title(
+        f"Null FDMID Segments — {len(null_geoms)} route(s) affected",
+        fontsize=12, fontweight='bold',
+    )
+    ax.set_aspect('equal')
+    ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    plt.tight_layout()
+    overview_path = os.path.join(output_dir, "null_fdmids_overview.png")
+    plt.savefig(overview_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    image_files.append(overview_path)
+    logger.info(f"Saved overview image: {overview_path}")
+
+    # --- Per-segment close-ups ---
+    pad = 500  # metres around centroid
+    for route_id, info in null_geoms.items():
+        seg_xs = [x for part in info["coords"] for x, _ in part]
+        seg_ys = [y for part in info["coords"] for _, y in part]
+        cx = sum(seg_xs) / len(seg_xs)
+        cy = sum(seg_ys) / len(seg_ys)
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_facecolor('#f5f5f5')
+        for coords in context_geoms:
+            xs, ys = zip(*coords)
+            if any(cx - pad <= x <= cx + pad and cy - pad <= y <= cy + pad for x, y in zip(xs, ys)):
+                ax.plot(xs, ys, color='#cccccc', linewidth=0.8, zorder=1)
+        for part_coords in info["coords"]:
+            xs, ys = zip(*part_coords)
+            ax.plot(xs, ys, color='red', linewidth=3, zorder=2)
+        ax.set_xlim(cx - pad, cx + pad)
+        ax.set_ylim(cy - pad, cy + pad)
+        ax.set_title(
+            f"Route: {route_id}  |  {info['routename']}",
+            fontsize=10, fontweight='bold',
+        )
+        ax.set_aspect('equal')
+        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+        ax.annotate(
+            f"Centroid (MTM5): ({cx:.1f}, {cy:.1f})",
+            xy=(0.02, 0.02), xycoords='axes fraction',
+            fontsize=7, color='#555555',
+        )
+        plt.tight_layout()
+        safe_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in route_id)
+        img_path = os.path.join(output_dir, f"null_fdmid_{safe_name}.png")
+        plt.savefig(img_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        image_files.append(img_path)
+        logger.info(f"Saved segment image: {img_path}")
+
+    return image_files
+
+
+def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: float, scratch_gdb: str = None) -> dict:
     """Run QA/QC checks on a dynamic segmentation feature.
 
     Parameters
@@ -84,12 +228,17 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     short_segment_threshold : float
         Minimum length (in the units of ``SHAPE@LENGTH``) that a segment must
         exceed in order to pass the short segment check.
+    scratch_gdb : str, optional
+        Path to a scratch file geodatabase.  When supplied, null-FDMID segments
+        are exported there as a standalone feature class so the reviewer can
+        load them directly in ArcGIS Pro.
 
     Returns
     -------
     dict
-        Dictionary containing the generated report file names and boolean flags
-        indicating whether critical or warning errors were found.
+        Dictionary containing the generated report file names, boolean flags
+        indicating whether critical or warning errors were found, a list of
+        PNG image paths for null-FDMID segments, and an optional GDB layer path.
 
     The checks performed are:
         - duplicate ``FDMID`` values
@@ -106,8 +255,14 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
     critical_errors_found = False
     warning_errors_found = False
+    segment_images = []
+    null_fdmid_layer = None
 
-    dyn_seg_fields = ["ROUTE_ID", "FDMID", "SHAPE@LENGTH", "GSA_LEFT", "GSA_RIGHT"]
+    dyn_seg_fields = [
+        "ROUTE_ID", "FDMID", "SHAPE@LENGTH",
+        "GSA_LEFT", "GSA_RIGHT",
+        "ROUTENAME", "STR_NAME", "FROMMEASURE", "TOMEASURE",
+    ]
 
     dyn_seg_data = [
         row for row in arcpy.da.SearchCursor(
@@ -118,6 +273,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
     df = pd.DataFrame(dyn_seg_data, columns=dyn_seg_fields).sort_values(by=["SHAPE@LENGTH", "ROUTE_ID", "GSA_LEFT"])
     df['FDMID'] = df['FDMID'].round().astype('Int64')
+    df['SHAPE@LENGTH'] = df['SHAPE@LENGTH'].round(3)
 
     # CRITICAL ERROR CHECKS
     # Check for null GSA
@@ -180,19 +336,66 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
         logger.info("Records with null FDMIDs found!")
 
-        null_fdmid_records = null_fdmid_df[['ROUTE_ID']].to_dict('records')
+        null_route_ids = null_fdmid_df['ROUTE_ID'].dropna().unique().tolist()
 
-        # write route IDs to a text file
+        # Enrich with centroid coordinates (separate geometry cursor)
+        centroid_map = {}
+        safe_ids = "', '".join(r.replace("'", "''") for r in null_route_ids)
+        with arcpy.da.SearchCursor(
+            dyn_seg_feature,
+            ["ROUTE_ID", "SHAPE@TRUECENTROID"],
+            f"TO_DATE IS NULL AND ROUTE_ID IN ('{safe_ids}')",
+        ) as cur:
+            for route_id, centroid in cur:
+                if centroid and route_id not in centroid_map:
+                    centroid_map[route_id] = (round(centroid.X, 1), round(centroid.Y, 1))
+
+        null_fdmid_df = null_fdmid_df.copy()
+        null_fdmid_df['Centroid_X'] = null_fdmid_df['ROUTE_ID'].map(
+            lambda r: centroid_map.get(r, (None, None))[0]
+        )
+        null_fdmid_df['Centroid_Y'] = null_fdmid_df['ROUTE_ID'].map(
+            lambda r: centroid_map.get(r, (None, None))[1]
+        )
+
+        report_cols = [
+            'ROUTE_ID', 'ROUTENAME', 'STR_NAME',
+            'FROMMEASURE', 'TOMEASURE', 'SHAPE@LENGTH',
+            'GSA_LEFT', 'GSA_RIGHT',
+            'Centroid_X', 'Centroid_Y',
+        ]
+        null_fdmid_records = null_fdmid_df[report_cols].to_dict('records')
+
         try:
             with open(null_fdmids_report, "w", newline='') as csv_file:
-                fieldnames = null_fdmid_records[0].keys()  # grab your column order
+                fieldnames = null_fdmid_records[0].keys()
                 writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-                writer.writeheader()  # write column headers
-                writer.writerows(null_fdmid_records)  # write all rows at once
-
+                writer.writeheader()
+                writer.writerows(null_fdmid_records)
         except OSError as exc:
             logger.error(f"Failed to write null FDMIDs report: {exc}")
+
+        # Export null FDMID segments to GDB for direct review in ArcGIS Pro
+        if scratch_gdb:
+            try:
+                null_fdmid_layer = os.path.join(scratch_gdb, "null_fdmid_segments")
+                safe_ids_where = "', '".join(r.replace("'", "''") for r in null_route_ids)
+                arcpy.conversion.ExportFeatures(
+                    in_features=dyn_seg_feature,
+                    out_features=null_fdmid_layer,
+                    where_clause=f"TO_DATE IS NULL AND ROUTE_ID IN ('{safe_ids_where}')",
+                )
+                logger.info(f"Exported null FDMID segments to: {null_fdmid_layer}")
+            except (arcpy.ExecuteError, OSError) as exc:
+                logger.error(f"Failed to export null FDMID segments to GDB: {exc}")
+                null_fdmid_layer = None
+
+        # Generate segment images
+        segment_images = export_segment_images(
+            dyn_seg_feature=dyn_seg_feature,
+            null_route_ids=null_route_ids,
+            output_dir=os.getcwd(),
+        )
 
     if short_segments:
 
@@ -218,6 +421,8 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         "null_fdmids_report": null_fdmids_report,
         "null_gsa_report": null_gsa_report,
         "short_segments_report": short_segments_report,
+        "segment_images": segment_images,
+        "null_fdmid_layer": null_fdmid_layer,
 
         "critical_errors_found": critical_errors_found,
         "warning_errors_found": warning_errors_found
@@ -332,8 +537,6 @@ if __name__ == "__main__":
 
                     # Create new dyn seg, not feeding view
 
-                    # TODO: Put geometry in a shared location for user reference
-
                     # pre_dyn_seg_feature = update_lrs_dynamic_segmentation(out_db=LRS_GDB, segmented_feature_name=os.path.basename("TRNLRS_segmented_street_events"))
                     pre_dyn_seg_feature = update_lrs_dynamic_segmentation(
                         out_db=scratch_gdb,
@@ -343,7 +546,9 @@ if __name__ == "__main__":
 
                     lrs_email_recipents = ['tr33177@halifax.ca', 'me24191@halifax.ca']
                     short_segment_threshold = 3.174511  # FUNCTION VAR
-                    view_checks_info = trnlrs_street_view_checks(pre_dyn_seg_feature, short_segment_threshold)
+                    view_checks_info = trnlrs_street_view_checks(
+                        pre_dyn_seg_feature, short_segment_threshold, scratch_gdb=scratch_gdb
+                    )
 
                     if view_checks_info["critical_errors_found"] or view_checks_info["warning_errors_found"]:
 
@@ -352,7 +557,14 @@ if __name__ == "__main__":
                             view_checks_info['null_gsa_report'], view_checks_info['short_segments_report']
                         )
                         written_reports = [x for x in reports if os.path.exists(x)]
-                        
+                        written_reports += view_checks_info['segment_images']
+
+                        null_fdmid_layer = view_checks_info['null_fdmid_layer']
+                        gdb_note = (
+                            f"\nNull FDMID segments exported to GDB for review: '{null_fdmid_layer}'"
+                            if null_fdmid_layer else ""
+                        )
+
                         # TODO: Skip weekends
                         # send_mail(
                         #     to=lrs_email_recipents,
@@ -360,6 +572,7 @@ if __name__ == "__main__":
                         #     text="Uh oh, we have a small problem, friends - attached is some information regarding some issues feeding the TRNLRS_steet_VW, for your VIEWing pleasure."
                         #          f"\n\t(The shortest segment threshold used was '{short_segment_threshold}')"
                         #          f"\nCheck out geometry information here: '{LRS_GDB}'"
+                        #          f"{gdb_note}"
                         #          "\nBreathe, think, review, and keep up the good work."
                         #          "\n\nGodspeed.",
                         #     files=written_reports,
