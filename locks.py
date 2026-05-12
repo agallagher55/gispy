@@ -192,18 +192,19 @@ def get_lock_details(sde_workspace: str) -> list[dict]:
     for user in sde_users:
         username_lower = (user.Name or "").lower()
         user_locks = lock_map.get(username_lower, [(None, None)])
+        client_type = getattr(user, "ClientType", None)
 
         for table_name, lock_type in user_locks:
             results.append({
                 "sde_id": user.ID,
                 "username": user.Name,
                 "client_name": user.ClientName,
-                "client_type": user.ClientType,
+                "client_type": client_type,
                 "minutes": user.MinutesConnected,
                 "transactions": user.TransactionCount,
                 "table_name": table_name,
                 "lock_type": lock_type,
-                "is_service": user.ClientType == "ArcGIS Server",
+                "is_service": client_type == "ArcGIS Server",
             })
 
     logger.info(f"  {len(results)} session/lock row(s) compiled.")
@@ -294,17 +295,19 @@ def get_feature_locks(sde_workspace: str, feature: str) -> list[dict]:
         if not user_locks:
             continue
 
+        client_type = getattr(user, "ClientType", None)
+
         for tbl, lock_type in user_locks:
             results.append({
                 "sde_id": user.ID,
                 "username": user.Name,
                 "client_name": user.ClientName,
-                "client_type": user.ClientType,
+                "client_type": client_type,
                 "minutes": user.MinutesConnected,
                 "transactions": user.TransactionCount,
                 "table_name": tbl,
                 "lock_type": lock_type,
-                "is_service": user.ClientType == "ArcGIS Server",
+                "is_service": client_type == "ArcGIS Server",
             })
 
     if results:
