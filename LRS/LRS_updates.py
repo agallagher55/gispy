@@ -469,7 +469,8 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
     critical_errors_found = False
     warning_errors_found = False
-    segment_images = []
+    null_fdmid_images = []
+    duplicate_fdmid_images = []
 
     dyn_seg_fields = [
         "ROUTE_ID", "FDMID", "SHAPE@LENGTH", "GSA_LEFT", "GSA_RIGHT",
@@ -534,6 +535,17 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
             for fdmid in duplicate_fdmids:
                 txt_file.write(f"{fdmid}\n")
 
+        duplicate_route_ids = (
+            df[df['FDMID'].isin(duplicate_fdmids)]['ROUTE_ID'].dropna().unique().tolist()
+        )
+        duplicate_fdmid_images = export_segment_images(
+            dyn_seg_feature=dyn_seg_feature,
+            null_route_ids=duplicate_route_ids,
+            output_dir=os.getcwd(),
+            image_prefix="duplicate_fdmid",
+            overview_title=f"Duplicate FDMID Segments — {len(duplicate_route_ids)} route(s) affected",
+        )
+
     else:
         if os.path.exists(duplicate_fdmids_report):
             os.remove(duplicate_fdmids_report)
@@ -573,10 +585,12 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         ]
         _write_csv_report(null_fdmids_report, null_fdmid_df[report_cols].to_dict('records'))
 
-        segment_images = export_segment_images(
+        null_fdmid_images = export_segment_images(
             dyn_seg_feature=dyn_seg_feature,
             null_route_ids=null_route_ids,
             output_dir=os.getcwd(),
+            image_prefix="null_fdmid",
+            overview_title=f"Null FDMID Segments — {len(null_route_ids)} route(s) affected",
         )
 
     else:
@@ -594,7 +608,8 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         "null_fdmids_report": null_fdmids_report,
         "null_gsa_report": null_gsa_report,
         "short_segments_report": short_segments_report,
-        "segment_images": segment_images,
+        "null_fdmid_images": null_fdmid_images,
+        "duplicate_fdmid_images": duplicate_fdmid_images,
 
         "critical_errors_found": critical_errors_found,
         "warning_errors_found": warning_errors_found
@@ -964,7 +979,8 @@ if __name__ == "__main__":
             )
 
             written_reports = [x for x in reports if os.path.exists(x)]
-            written_reports += view_checks_info['segment_images']
+            written_reports += view_checks_info['null_fdmid_images']
+            written_reports += view_checks_info['duplicate_fdmid_images']
 
             send_mail(
                 to=lrs_email_recipents,

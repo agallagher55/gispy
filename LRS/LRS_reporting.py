@@ -6,11 +6,32 @@ import arcpy
 logger = logging.getLogger(__name__)
 
 
-def export_segment_images(dyn_seg_feature: str, null_route_ids: list, output_dir: str) -> list:
-    """Generate PNG map images for segments with null FDMIDs.
+def export_segment_images(
+    dyn_seg_feature: str,
+    null_route_ids: list,
+    output_dir: str,
+    image_prefix: str = "null_fdmid",
+    overview_title: str = None,
+) -> list:
+    """Generate PNG map images for a set of flagged segments.
 
     Produces one overview PNG (all affected routes highlighted in red over
     nearby context streets) and one close-up PNG per affected route.
+
+    Parameters
+    ----------
+    dyn_seg_feature : str
+        Path to the feature class to query.
+    null_route_ids : list
+        ROUTE_ID values to highlight.
+    output_dir : str
+        Directory where PNGs are written.
+    image_prefix : str
+        Prefix for output filenames (e.g. ``"null_fdmid"`` or
+        ``"duplicate_fdmid"``).
+    overview_title : str, optional
+        Title for the overview image.  Defaults to
+        ``"<image_prefix> Segments — N route(s) affected"``.
 
     Returns a list of created image file paths, or an empty list if
     matplotlib is unavailable or no geometry is found.
@@ -96,14 +117,12 @@ def export_segment_images(dyn_seg_feature: str, null_route_ids: list, output_dir
             ax.plot(xs, ys, color='red', linewidth=2.5, zorder=2)
     null_handle = mlines.Line2D([], [], color='red', linewidth=2.5, label='Null FDMID segment')
     ax.legend(handles=[null_handle], loc='lower right', fontsize=8)
-    ax.set_title(
-        f"Null FDMID Segments — {len(null_geoms)} route(s) affected",
-        fontsize=12, fontweight='bold',
-    )
+    title = overview_title or f"{image_prefix} segments — {len(null_geoms)} route(s) affected"
+    ax.set_title(title, fontsize=12, fontweight='bold')
     ax.set_aspect('equal')
     ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
     plt.tight_layout()
-    overview_path = os.path.join(output_dir, "null_fdmids_overview.png")
+    overview_path = os.path.join(output_dir, f"{image_prefix}s_overview.png")
     plt.savefig(overview_path, dpi=150, bbox_inches='tight')
     plt.close()
     image_files.append(overview_path)
@@ -141,7 +160,7 @@ def export_segment_images(dyn_seg_feature: str, null_route_ids: list, output_dir
         )
         plt.tight_layout()
         safe_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in route_id)
-        img_path = os.path.join(output_dir, f"null_fdmid_{safe_name}.png")
+        img_path = os.path.join(output_dir, f"{image_prefix}_{safe_name}.png")
         plt.savefig(img_path, dpi=150, bbox_inches='tight')
         plt.close()
         image_files.append(img_path)
