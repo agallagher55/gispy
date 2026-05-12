@@ -14,6 +14,7 @@ from arcgis.features import FeatureLayer
 from arcgis.gis import GIS
 
 from HRMutils import (setupLog, send_mail, )
+from LRS_reporting import export_segment_images
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -449,8 +450,9 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     Returns
     -------
     dict
-        Dictionary containing the generated report file names and boolean flags
-        indicating whether critical or warning errors were found.
+        Dictionary containing the generated report file names, boolean flags
+        indicating whether critical or warning errors were found, and a list
+        of PNG image paths for null-FDMID segments (``segment_images``).
 
     The checks performed are:
         - duplicate ``FDMID`` values
@@ -467,8 +469,13 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
     critical_errors_found = False
     warning_errors_found = False
+    null_fdmid_images = []
+    duplicate_fdmid_images = []
 
-    dyn_seg_fields = ["ROUTE_ID", "FDMID", "SHAPE@LENGTH", "GSA_LEFT", "GSA_RIGHT"]
+    dyn_seg_fields = [
+        "ROUTE_ID", "FDMID", "SHAPE@LENGTH", "GSA_LEFT", "GSA_RIGHT",
+        "ROUTENAME", "STR_NAME", "FROM_MEASURE", "TO_MEASURE",
+    ]
 
     dyn_seg_data = [
         row for row in arcpy.da.SearchCursor(
@@ -481,6 +488,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     df = pd.DataFrame(dyn_seg_data, columns=dyn_seg_fields).sort_values(by=["SHAPE@LENGTH", "ROUTE_ID", "GSA_LEFT"])
 
     df['FDMID'] = pd.to_numeric(df['FDMID'], errors='coerce').round().astype('Int64')
+    df['SHAPE@LENGTH'] = df['SHAPE@LENGTH'].round(3)
 
     # CRITICAL ERROR CHECKS
     # Check for null GSA
@@ -527,15 +535,67 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
             for fdmid in duplicate_fdmids:
                 txt_file.write(f"{fdmid}\n")
 
+        duplicate_route_ids = (
+            df[df['FDMID'].isin(duplicate_fdmids)]['ROUTE_ID'].dropna().unique().tolist()
+        )
+        duplicate_fdmid_images = export_segment_images(
+            dyn_seg_feature=dyn_seg_feature,
+            null_route_ids=duplicate_route_ids,
+            output_dir=os.getcwd(),
+            image_prefix="duplicate_fdmid",
+            overview_title=f"Duplicate FDMID Segments — {len(duplicate_route_ids)} route(s) affected",
+        )
+
     else:
         if os.path.exists(duplicate_fdmids_report):
             os.remove(duplicate_fdmids_report)
 
-    if _cleanup_or_write_report(
-        null_fdmids_report, null_fdmid_df[['ROUTE_ID']].to_dict('records') if not null_fdmid_df.empty else [],
-        "Records with null FDMIDs found!"
-    ):
+    if not null_fdmid_df.empty:
+
         critical_errors_found = True
+        logger.info("DYN SEG ERROR: Records with null FDMIDs found!")
+
+        null_route_ids = null_fdmid_df['ROUTE_ID'].dropna().unique().tolist()
+
+        # Enrich with centroid coordinates (separate geometry cursor)
+        centroid_map = {}
+        safe_ids = "', '".join(r.replace("'", "''") for r in null_route_ids)
+        with arcpy.da.SearchCursor(
+            dyn_seg_feature,
+            ["ROUTE_ID", "SHAPE@TRUECENTROID"],
+            f"TO_DATE IS NULL AND ROUTE_ID IN ('{safe_ids}')",
+        ) as cur:
+            for route_id, centroid in cur:
+                if centroid and route_id not in centroid_map:
+                    centroid_map[route_id] = (round(centroid.X, 1), round(centroid.Y, 1))
+
+        null_fdmid_df = null_fdmid_df.copy()
+        null_fdmid_df['Centroid_X'] = null_fdmid_df['ROUTE_ID'].map(
+            lambda r: centroid_map.get(r, (None, None))[0]
+        )
+        null_fdmid_df['Centroid_Y'] = null_fdmid_df['ROUTE_ID'].map(
+            lambda r: centroid_map.get(r, (None, None))[1]
+        )
+
+        report_cols = [
+            'ROUTE_ID', 'ROUTENAME', 'STR_NAME',
+            'FROMMEASURE', 'TOMEASURE', 'SHAPE@LENGTH',
+            'GSA_LEFT', 'GSA_RIGHT',
+            'Centroid_X', 'Centroid_Y',
+        ]
+        _write_csv_report(null_fdmids_report, null_fdmid_df[report_cols].to_dict('records'))
+
+        null_fdmid_images = export_segment_images(
+            dyn_seg_feature=dyn_seg_feature,
+            null_route_ids=null_route_ids,
+            output_dir=os.getcwd(),
+            image_prefix="null_fdmid",
+            overview_title=f"Null FDMID Segments — {len(null_route_ids)} route(s) affected",
+        )
+
+    else:
+        if os.path.exists(null_fdmids_report):
+            os.remove(null_fdmids_report)
 
     if _cleanup_or_write_report(
         short_segments_report, short_segments,
@@ -548,6 +608,8 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         "null_fdmids_report": null_fdmids_report,
         "null_gsa_report": null_gsa_report,
         "short_segments_report": short_segments_report,
+        "null_fdmid_images": null_fdmid_images,
+        "duplicate_fdmid_images": duplicate_fdmid_images,
 
         "critical_errors_found": critical_errors_found,
         "warning_errors_found": warning_errors_found
@@ -888,9 +950,9 @@ if __name__ == "__main__":
         dyn_seg_feature_new = DynSegFeature(SDEADM_RW, SDE_DYN_SEG_FEATURE_NAME)
 
         logger.info(f"Updating dynamic segmentation in '{dyn_seg_feature_new.feature_name}'...")
-        # dyn_seg_feature_new.update_dynamic_segmentation()
+        dyn_seg_feature_new.update_dynamic_segmentation()
 
-        dyn_seg_feature_new.update_speed_limit_neighbourhood_segmentation()
+        # dyn_seg_feature_new.update_speed_limit_neighbourhood_segmentation()  # TODO: Uncomment
 
         ###################################################################################
         # DYN SEG Feature Checks
@@ -907,61 +969,63 @@ if __name__ == "__main__":
         short_segment_threshold = 3.174511  # FUNCTION VAR
         view_checks_info = trnlrs_street_view_checks(dyn_seg_feature_new.feature, short_segment_threshold)
 
-        # if view_checks_info["critical_errors_found"] or view_checks_info["warning_errors_found"]:
-        #
-        #     reports = (
-        #         view_checks_info['duplicate_fdmids_report'],
-        #         view_checks_info['null_fdmids_report'],
-        #         view_checks_info['null_gsa_report'],
-        #         view_checks_info['short_segments_report'],
-        #     )
-        #
-        #     written_reports = [x for x in reports if os.path.exists(x)]
-        #
-        #     # send_mail(
-        #     #     to=lrs_email_recipents,
-        #     #     subject="TRNLRS_street_view Errors & Warnings Report (from QA)",
-        #     #     text="Uh oh, we have a small problem - attached is some information regarding some issues feeding the TRNLRS_steet_VW, for your VIEWing pleasure."
-        #     #          f"\n\t(The shortest segment threshold used was '{short_segment_threshold}')"
-        #     #          f"\nCheck out geometry information here: '{SDE_DYN_SEG_FEATURE_NAME}'"
-        #     #          "\n\nGodspeed.",
-        #     #     files=written_reports,
-        #     #     cc=['gallaga@halifax.ca'],
-        #     # )
-        #
-        #     logger.error(f"Critical errors found in {SDE_DYN_SEG_FEATURE_NAME} to prevent {LRS_VIEW_NAME} from updating")
+        if view_checks_info["critical_errors_found"] or view_checks_info["warning_errors_found"]:
 
-        # else:
+            reports = (
+                view_checks_info['duplicate_fdmids_report'],
+                view_checks_info['null_fdmids_report'],
+                view_checks_info['null_gsa_report'],
+                view_checks_info['short_segments_report'],
+            )
 
-        ###################################################################################
-        # Update TRNLRS_TRN_street_VW
-        ###################################################################################
+            written_reports = [x for x in reports if os.path.exists(x)]
+            written_reports += view_checks_info['null_fdmid_images']
+            written_reports += view_checks_info['duplicate_fdmid_images']
 
-        street_features = {
-            # sde_lrs_trn_streets_feature: {"update_method": dyn_seg_feature_new.update_lrs_streets},
-            # street_lanes_feature: {"update_method": dyn_seg_feature_new.update_street_lanes},
-            # retired_streets_nscaf: {"update_method": dyn_seg_feature_new.update_nscaf_streets},
-            sde_lrs_speed_limit_feature: {"update_method": dyn_seg_feature_new.update_speed_limit_neighbourhood},
-        }
+            send_mail(
+                to=lrs_email_recipents,
+                subject="TRNLRS_street_view Errors & Warnings Report (from QA)",
+                text="Uh oh, we have a small problem - attached is some information regarding some issues feeding the TRNLRS_steet_VW, for your VIEWing pleasure."
+                     f"\n\t(The shortest segment threshold used was '{short_segment_threshold}')"
+                     f"\nCheck out geometry information here: '{SDE_DYN_SEG_FEATURE_NAME}'"
+                     "\n\nGodspeed.",
+                files=written_reports,
+                cc=['gallaga@halifax.ca'],
+            )
 
-        for feature, feature_info in street_features.items():
+            logger.error(f"Critical errors found in {SDE_DYN_SEG_FEATURE_NAME} to prevent {LRS_VIEW_NAME} from updating")
 
-            logger.info(f"Processing {feature}")
+        else:
 
-            update = feature_info.get('update_method')
+            ###################################################################################
+            # Update TRNLRS_TRN_street_VW
+            ###################################################################################
 
-            if update:
+            street_features = {
+                sde_lrs_trn_streets_feature: {"update_method": dyn_seg_feature_new.update_lrs_streets},
+                street_lanes_feature: {"update_method": dyn_seg_feature_new.update_street_lanes},
+                retired_streets_nscaf: {"update_method": dyn_seg_feature_new.update_nscaf_streets},
+                sde_lrs_speed_limit_feature: {"update_method": dyn_seg_feature_new.update_speed_limit_neighbourhood},
+            }
 
-                rw_tbl = feature
-                ro_tbl = os.path.join(SDEADM_RO, os.path.basename(feature))
+            for feature, feature_info in street_features.items():
 
-                update(rw_tbl)
+                logger.info(f"Processing {feature}")
 
-                # Manually update RO features
-                logger.info("Updating RO features (outside of replication)...")
+                update = feature_info.get('update_method')
 
-                # Update RO feature from RW feature
-                append_feature(rw_tbl, ro_tbl, SDEADM_RO)
+                if update:
+
+                    rw_tbl = feature
+                    ro_tbl = os.path.join(SDEADM_RO, os.path.basename(feature))
+
+                    update(rw_tbl)
+
+                    # Manually update RO features
+                    logger.info("Updating RO features (outside of replication)...")
+
+                    # Update RO feature from RW feature
+                    append_feature(rw_tbl, ro_tbl, SDEADM_RO)
 
     except LicenseError:
         run_error_processing(
