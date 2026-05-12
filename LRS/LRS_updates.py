@@ -14,6 +14,7 @@ from arcgis.features import FeatureLayer
 from arcgis.gis import GIS
 
 from HRMutils import (setupLog, send_mail, )
+from LRS_reporting import export_segment_images
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -449,8 +450,9 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     Returns
     -------
     dict
-        Dictionary containing the generated report file names and boolean flags
-        indicating whether critical or warning errors were found.
+        Dictionary containing the generated report file names, boolean flags
+        indicating whether critical or warning errors were found, and a list
+        of PNG image paths for null-FDMID segments (``segment_images``).
 
     The checks performed are:
         - duplicate ``FDMID`` values
@@ -467,8 +469,13 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
 
     critical_errors_found = False
     warning_errors_found = False
+    segment_images = []
 
-    dyn_seg_fields = ["ROUTE_ID", "FDMID", "SHAPE@LENGTH", "GSA_LEFT", "GSA_RIGHT"]
+    dyn_seg_fields = [
+        "ROUTE_ID", "FDMID", "SHAPE@LENGTH",
+        "GSA_LEFT", "GSA_RIGHT",
+        "ROUTENAME", "STR_NAME", "FROMMEASURE", "TOMEASURE",
+    ]
 
     dyn_seg_data = [
         row for row in arcpy.da.SearchCursor(
@@ -481,6 +488,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
     df = pd.DataFrame(dyn_seg_data, columns=dyn_seg_fields).sort_values(by=["SHAPE@LENGTH", "ROUTE_ID", "GSA_LEFT"])
 
     df['FDMID'] = pd.to_numeric(df['FDMID'], errors='coerce').round().astype('Int64')
+    df['SHAPE@LENGTH'] = df['SHAPE@LENGTH'].round(3)
 
     # CRITICAL ERROR CHECKS
     # Check for null GSA
@@ -531,11 +539,49 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         if os.path.exists(duplicate_fdmids_report):
             os.remove(duplicate_fdmids_report)
 
-    if _cleanup_or_write_report(
-        null_fdmids_report, null_fdmid_df[['ROUTE_ID']].to_dict('records') if not null_fdmid_df.empty else [],
-        "Records with null FDMIDs found!"
-    ):
+    if not null_fdmid_df.empty:
         critical_errors_found = True
+        logger.info("DYN SEG ERROR: Records with null FDMIDs found!")
+
+        null_route_ids = null_fdmid_df['ROUTE_ID'].dropna().unique().tolist()
+
+        # Enrich with centroid coordinates (separate geometry cursor)
+        centroid_map = {}
+        safe_ids = "', '".join(r.replace("'", "''") for r in null_route_ids)
+        with arcpy.da.SearchCursor(
+            dyn_seg_feature,
+            ["ROUTE_ID", "SHAPE@TRUECENTROID"],
+            f"TO_DATE IS NULL AND ROUTE_ID IN ('{safe_ids}')",
+        ) as cur:
+            for route_id, centroid in cur:
+                if centroid and route_id not in centroid_map:
+                    centroid_map[route_id] = (round(centroid.X, 1), round(centroid.Y, 1))
+
+        null_fdmid_df = null_fdmid_df.copy()
+        null_fdmid_df['Centroid_X'] = null_fdmid_df['ROUTE_ID'].map(
+            lambda r: centroid_map.get(r, (None, None))[0]
+        )
+        null_fdmid_df['Centroid_Y'] = null_fdmid_df['ROUTE_ID'].map(
+            lambda r: centroid_map.get(r, (None, None))[1]
+        )
+
+        report_cols = [
+            'ROUTE_ID', 'ROUTENAME', 'STR_NAME',
+            'FROMMEASURE', 'TOMEASURE', 'SHAPE@LENGTH',
+            'GSA_LEFT', 'GSA_RIGHT',
+            'Centroid_X', 'Centroid_Y',
+        ]
+        _write_csv_report(null_fdmids_report, null_fdmid_df[report_cols].to_dict('records'))
+
+        segment_images = export_segment_images(
+            dyn_seg_feature=dyn_seg_feature,
+            null_route_ids=null_route_ids,
+            output_dir=os.getcwd(),
+        )
+
+    else:
+        if os.path.exists(null_fdmids_report):
+            os.remove(null_fdmids_report)
 
     if _cleanup_or_write_report(
         short_segments_report, short_segments,
@@ -548,6 +594,7 @@ def trnlrs_street_view_checks(dyn_seg_feature: str, short_segment_threshold: flo
         "null_fdmids_report": null_fdmids_report,
         "null_gsa_report": null_gsa_report,
         "short_segments_report": short_segments_report,
+        "segment_images": segment_images,
 
         "critical_errors_found": critical_errors_found,
         "warning_errors_found": warning_errors_found
@@ -917,6 +964,7 @@ if __name__ == "__main__":
         #     )
         #
         #     written_reports = [x for x in reports if os.path.exists(x)]
+        #     written_reports += view_checks_info['segment_images']
         #
         #     # send_mail(
         #     #     to=lrs_email_recipents,
