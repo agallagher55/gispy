@@ -210,6 +210,116 @@ def get_lock_details(sde_workspace: str) -> list[dict]:
     return results
 
 
+def get_feature_locks(sde_workspace: str, feature: str) -> list[dict]:
+    """
+    Return lock details for a single feature class or table.
+
+    Parameters
+    ----------
+    sde_workspace : str
+        Path to an SDE connection file.
+    feature : str
+        Feature class or table name.  Can be fully qualified
+        (``"SDEADM.TRN_bridge"``) or unqualified (``"TRN_bridge"``).
+
+    Returns
+    -------
+    list[dict]
+        Same structure as :func:`get_lock_details`.  Empty list means no
+        locks are held on that feature.  If the schema lock test passes,
+        the list is empty even if sessions are connected.
+    """
+    full_path = os.path.join(sde_workspace, feature)
+    table_name = feature.split(".")[-1]
+
+    schema_locked = not arcpy.TestSchemaLock(full_path)
+    logger.info(
+        f"Schema lock test for '{feature}': "
+        f"{'LOCKED' if schema_locked else 'available'}"
+    )
+
+    if not schema_locked:
+        return []
+
+    # --- SDE sessions --------------------------------------------------------
+    try:
+        sde_users = arcpy.ListUsers(sde_workspace)
+    except Exception as e:
+        logger.error(f"arcpy.ListUsers failed: {e}")
+        return []
+
+    # --- Table-level locks filtered to this object ---------------------------
+    sql = f"""
+        SELECT
+            s.login_name,
+            o.name          AS table_name,
+            tl.request_mode AS lock_type
+        FROM
+            sys.dm_exec_sessions  AS s
+        JOIN
+            sys.dm_tran_locks     AS tl ON s.session_id = tl.request_session_id
+        LEFT JOIN
+            sys.objects           AS o  ON tl.resource_associated_entity_id = o.object_id
+        WHERE
+            tl.resource_database_id = DB_ID()
+            AND tl.resource_type    = 'OBJECT'
+            AND o.name              = '{table_name}'
+        ORDER BY
+            s.login_name
+    """
+
+    lock_map: dict[str, list[tuple]] = {}
+    try:
+        conn = arcpy.ArcSDESQLExecute(sde_workspace)
+        raw = conn.execute(sql)
+
+        if raw:
+            if not isinstance(raw[0], list):
+                raw = [raw]
+            for login_name, tbl, lock_type in raw:
+                key = (login_name or "").lower()
+                lock_map.setdefault(key, []).append((tbl, lock_type))
+
+    except Exception as e:
+        logger.warning(
+            f"  Could not query sys.dm_tran_locks: {e}\n"
+            "  Returning sessions without table-level lock detail."
+        )
+
+    results = []
+    for user in sde_users:
+        username_lower = (user.Name or "").lower()
+        user_locks = lock_map.get(username_lower)
+
+        if not user_locks:
+            continue
+
+        for tbl, lock_type in user_locks:
+            results.append({
+                "sde_id": user.ID,
+                "username": user.Name,
+                "client_name": user.ClientName,
+                "client_type": user.ClientType,
+                "minutes": user.MinutesConnected,
+                "transactions": user.TransactionCount,
+                "table_name": tbl,
+                "lock_type": lock_type,
+                "is_service": user.ClientType == "ArcGIS Server",
+            })
+
+    if results:
+        logger.info(f"  {len(results)} lock(s) found on '{feature}':")
+        for row in results:
+            logger.info(
+                f"    sde_id={row['sde_id']}  user={row['username']}"
+                f"  type={row['client_type']}  lock={row['lock_type']}"
+            )
+    else:
+        logger.info(f"  No session-level locks resolved for '{feature}'.")
+
+    return results
+
+
 def locks_from_services(sde_workspace: str) -> list[dict]:
     """
     Return only lock-detail rows whose ``client_type`` is ``"ArcGIS Server"``.
@@ -337,7 +447,9 @@ if __name__ == "__main__":
     else:
         print("\nNo locked features found.")
 
-    # --- 2. Full lock details (all sessions) --------------------------------
+    # --- 2. Locks on a specific feature -------------------------------------
+    # feature_locks = get_feature_locks(SDE_RW, "SDEADM.TRN_bridge")
+
     lock_info = get_lock_details(SDE_RW)
     print(f"\nActive SDE sessions with lock details: {len(lock_info)}")
     for info in lock_info:
@@ -347,9 +459,9 @@ if __name__ == "__main__":
             f"  table={info['table_name']}  service={info['is_service']}"
         )
 
-    # --- 3. Locks from services only ----------------------------------------
+    # --- 4. Locks from services only ----------------------------------------
     service_lock_info = locks_from_services(SDE_RW)
 
-    # --- 4. Remove locks (dry_run=True by default — set False to act) -------
+    # --- 5. Remove locks (dry_run=True by default — set False to act) -------
     removed = remove_locks(SDE_RW, services_only=False, dry_run=True)
     print(f"\nSessions that would be disconnected: {[r['sde_id'] for r in removed]}")
