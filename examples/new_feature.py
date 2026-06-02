@@ -34,7 +34,8 @@ config.read('config.ini')
 feature_config = ConfigParser()
 feature_config.optionxform = str  # preserve case
 # TODO: UPDATE
-feature_config.read(r'T:\work\giss\monthly\202604apr\gallaga\EVT_events\scripts\configs\feature_config_evt_event_routes.ini')
+feature_config.read(
+    r'T:\work\giss\monthly\202606jun\gallaga\LND_heritage_contributing_resources\scripts\feature_config.ini')
 
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
 SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
@@ -52,7 +53,7 @@ SUBTYPE_DOMAINS = ast.literal_eval(feature_config.get("FEATURE_SETTINGS", "subty
 
 TOPOLOGY_DATASET = feature_config.getboolean("FEATURE_SETTINGS", "topology_dataset")
 
-# TODO: UPDATE
+# TODO: UPDATE??
 # UNIQUE ID FIELDS
 NEW_DOMAIN_TYPES = dict(feature_config.items("NEW_DOMAIN_TYPES"))
 VALID_FIELD_TYPES = {"TEXT", "SHORT", "LONG", "FLOAT", "DOUBLE", "DATE"}
@@ -68,7 +69,6 @@ SPATIAL_REFERENCE = os.path.join(PROD_SDE, "SDEADM.LND_hrm_parcel_parks", "SDEAD
 
 
 def sort_key_description(row):
-
     description = row[2]
 
     if description is None:
@@ -79,6 +79,7 @@ def sort_key_description(row):
 
     except (TypeError, ValueError):
         return 1, str(description.strip())
+
 
 if __name__ == "__main__":
 
@@ -340,18 +341,22 @@ if __name__ == "__main__":
                                 print(f"\tCopying RW feature to {ro_db}...")
 
                                 # Need to use table to table if a table...
+                                out_name = new_feature.feature_name.upper().lstrip("SDEADM.")
+
                                 if feature_shape.upper() in ('ENTERPRISE GEODATABASE TABLE', 'NOT APPLICABLE'):
+
                                     feature = arcpy.TableToTable_conversion(
                                         in_rows=new_feature.feature,
                                         out_path=ro_db,
-                                        out_name=new_feature.feature_name
+                                        out_name=out_name
                                     )[0]
 
                                 else:
+
                                     feature = arcpy.FeatureClassToFeatureClass_conversion(
                                         in_features=new_feature.feature,
                                         out_path=ro_db,
-                                        out_name=new_feature.feature_name,
+                                        out_name=out_name,
                                     )[0]
 
                         if READY_TO_ADD_TO_REPLICA:
