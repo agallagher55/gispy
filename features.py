@@ -49,29 +49,7 @@ def arcpy_messages(func):
             print(f"ARCPY ERROR: {e}")
 
     return wrapper
-
-
-def remove_domain(feature, fields):
-    """Remove domain assignment from one or more fields on a feature class.
-
-    :param feature: Full feature class path or name (within current arcpy workspace).
-    :param fields: List of field names whose domain assignment should be cleared.
-    """
-    print(f"\nRemoving domains from '{feature}'...")
-
-    for field in fields:
-        print(f"\tRemoving domain from field '{field}'...")
-        try:
-            arcpy.RemoveDomainFromField_management(
-                in_table=feature,
-                field_name=field
-            )
-            for msg in arcpy.GetMessages().split("\n"):
-                if msg:
-                    print(f"\t\t{msg}")
-        except arcpy.ExecuteError:
-            print(f"\t\tARCPY ERROR: {arcpy.GetMessages(2)}")
-
+    
 
 class Feature:
     def __init__(self, workspace, feature_name: str, geometry_type, spatial_reference=None, alias: str = "#"):
