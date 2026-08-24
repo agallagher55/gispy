@@ -34,8 +34,7 @@ config.read('config.ini')
 feature_config = ConfigParser()
 feature_config.optionxform = str  # preserve case
 # TODO: UPDATE
-feature_config.read(
-    r'T:\work\giss\monthly\202606jun\gallaga\LND_heritage_contributing_resources\scripts\feature_config.ini')
+feature_config.read('feature_config.ini')
 
 SDSF = feature_config.get("SDSF_SETTINGS", "sdsf")
 SDSF_IGNORE_FIELDS = ast.literal_eval(feature_config.get("SDSF_SETTINGS", "SDSF_IGNORE_FIELDS"))
@@ -93,9 +92,9 @@ if __name__ == "__main__":
             config.get("SERVER", "dev_rw"),
         ],
 
-        [
-            config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
-        ],
+        # [
+        #     config.get("SERVER", "qa_rw"),  # qa_ro, qa_web_ro will get copied to db when processing rw
+        # ],
 
         # [
         #     config.get("SERVER", "prod_rw"),
@@ -341,7 +340,7 @@ if __name__ == "__main__":
                                 print(f"\tCopying RW feature to {ro_db}...")
 
                                 # Need to use table to table if a table...
-                                out_name = new_feature.feature_name.upper().lstrip("SDEADM.")
+                                out_name = new_feature.feature_name.upper().split("SDEADM.")[-1]
 
                                 if feature_shape.upper() in ('ENTERPRISE GEODATABASE TABLE', 'NOT APPLICABLE'):
 
