@@ -43,6 +43,29 @@ import arcpy
 logger = logging.getLogger(__name__)
 
 
+def _sql_result_rows(raw):
+    """Normalize an ArcSDESQLExecute SELECT result to a list of rows.
+
+    ArcSDESQLExecute normally returns a list of rows for a multi-column
+    SELECT, but it can also return a scalar or boolean value.  In particular,
+    ``True`` means that the SQL statement executed without returning row
+    data; it must not be treated as a subscriptable result set.
+    """
+    if raw is None or isinstance(raw, bool):
+        return []
+
+    if not isinstance(raw, (list, tuple)):
+        return []
+
+    if not raw:
+        return []
+
+    if isinstance(raw[0], (list, tuple)):
+        return raw
+
+    return [raw]
+
+
 def check_for_locks(fc_path):
     """Check whether a feature class is free of blocking locks.
 
@@ -165,13 +188,9 @@ def get_lock_details(sde_workspace):
         conn = arcpy.ArcSDESQLExecute(sde_workspace)
         raw = conn.execute(sql)
 
-        if raw:
-            if not isinstance(raw[0], list):
-                raw = [raw]
-
-            for login_name, host_name, table_name, lock_type in raw:
-                key = (login_name or "").lower()
-                lock_map.setdefault(key, []).append((table_name, lock_type))
+        for login_name, host_name, table_name, lock_type in _sql_result_rows(raw):
+            key = (login_name or "").lower()
+            lock_map.setdefault(key, []).append((table_name, lock_type))
 
     except Exception as e:
         logger.warning(
@@ -258,13 +277,9 @@ def get_feature_locks(sde_workspace, feature):
         conn = arcpy.ArcSDESQLExecute(sde_workspace)
         raw = conn.execute(sql)
 
-        if raw:
-            if not isinstance(raw[0], list):
-                raw = [raw]
-
-            for login_name, tbl, lock_type in raw:
-                key = (login_name or "").lower()
-                lock_map.setdefault(key, []).append((tbl, lock_type))
+        for login_name, tbl, lock_type in _sql_result_rows(raw):
+            key = (login_name or "").lower()
+            lock_map.setdefault(key, []).append((tbl, lock_type))
 
     except Exception as e:
         logger.warning(
