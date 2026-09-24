@@ -143,22 +143,21 @@ if __name__ == "__main__":
     # RO / web_ro: creates the feature directly in that db, un-versioned, no replica
     for dbs in [
         [
+            # config.get("SERVER", "dev_rw"),
             config.get("SERVER", "dev_ro"),
             config.get("SERVER", "dev_web_ro_gdb"),
         ],
-
+        # 
         # [
+        #     config.get("SERVER", "qa_rw"),
         #     config.get("SERVER", "qa_ro"),
         #     config.get("SERVER", "qa_web_ro_gdb"),
         # ],
-
+        # 
         # [
+        #     config.get("SERVER", "prod_rw"),
         #     config.get("SERVER", "prod_ro"),
         #     config.get("SERVER", "prod_web_ro_gdb"),
-        # ],
-
-        # [
-        #     config.get("SERVER", "dev_rw"),  # dev_ro will get copied to db when processing rw
         # ],
 
     ]:
