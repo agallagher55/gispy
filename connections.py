@@ -13,6 +13,7 @@ def connection_type(db: str) -> (str, str):
     Examples:
     connection_type("RW_SDEADM") -> ("SDE", "RW")
     connection_type("RO_SDEADM") -> ("SDE", "RO")
+    connection_type("web_RO.gdb") -> ("GDB", "RO")
     connection_type("database.gdb") -> ("GDB", "")
     """
 
@@ -20,11 +21,14 @@ def connection_type(db: str) -> (str, str):
 
     db = db.upper()
 
-    rw_sde_db = "RW_SDEADM" in db
-    ro_sde_db = "RO_SDEADM" in db or (db.endswith(".GDB") and "_RO" in db)
+    # Check for file geodatabases first so paths like web_RO.gdb are not treated as SDE
+    is_gdb = db.endswith(".GDB")
 
-    ro_gdb = db.endswith(".GDB") and "_RO" in db
-    scratch_gdb = db.endswith(".GDB") and "_RO" not in db
+    rw_sde_db = not is_gdb and "RW_SDEADM" in db
+    ro_sde_db = not is_gdb and "RO_SDEADM" in db
+
+    ro_gdb = is_gdb and "_RO" in db
+    scratch_gdb = is_gdb and "_RO" not in db
 
     if rw_sde_db:
         print(f"\tDatabase Type: RW SDE")

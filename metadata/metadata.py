@@ -33,6 +33,15 @@ def get_xml_text(xml, tags='reviseDate'):
         found_text = match_found.group(1)
         return found_text
 
+def _cell_value(value):
+    """Return None for blank Excel cells, which pandas reads as NaN."""
+
+    if pd.isna(value):
+        return None
+
+    return value
+
+
 class SDSFMetaData:
 
     xl_tab = "METADATA"
@@ -59,22 +68,22 @@ class SDSFMetaData:
     def get_description(self):
         header_idx = self.df.loc[self.df[self._COL] == 'Description: (1000 character limit)'].index[0]
         desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+        return _cell_value(desc)
 
     def get_summary(self):
         header_idx = self.df.loc[self.df[self._COL] == 'Summary: (500 character limit)'].index[0]
         desc = self.df.iloc[header_idx + 1, 0]  # row, col
-        return desc
+        return _cell_value(desc)
 
     def get_tags(self):
         header_idx = self.df.loc[self.df[self._COL] == 'Tags: (255 character limit)'].index[0]
         tags = self.df.iloc[header_idx + 1, 0]  # row, col
-        return tags
+        return _cell_value(tags)
 
     def get_limitations(self):
         header_idx = self.df.loc[self.df[self._COL] == 'Use Limitations: (255 character limit)'].index[0]
         limits = self.df.iloc[header_idx + 1, 0]  # row, col
-        return limits
+        return _cell_value(limits)
 
     def get_name(self):
         header_idx = self.df.loc[self.df[self._COL] == 'Data Source Name'].index[0]
