@@ -14,8 +14,9 @@ class Report:
 
         self.df = self.to_dataframe(self.sheet_name)
         self.feature_class_name, self.feature_shape, self.feature_type = self.report_details()
+        self.alias = self.report_alias()
 
-    def to_dataframe(self, sheet_name):
+    def to_dataframe(self, sheet_name, drop_blank_rows=True):
         try:
             df = pd.read_excel(io=self.source, sheet_name=sheet_name, index_col=0)
         except ValueError:
@@ -23,8 +24,11 @@ class Report:
                 f"Sheet '{sheet_name}' not found in '{self.source}'. "
                 f"Check that the SDSF follows the expected template."
             )
-        df = df.where(pd.notnull(df), None)  # Remove NaN values with None
-        df = df[pd.notnull(df.index)]  # Remove blank lines from index
+        df = df.astype(object).where(pd.notnull(df), None)  # Replace NaN values with None (object dtype keeps None)
+
+        if drop_blank_rows:
+            df = df[pd.notnull(df.index)]  # Remove blank lines from index
+
         return df
 
     def report_details(self):
@@ -48,6 +52,23 @@ class Report:
         feature_type = df_feature_details["Feature Type"].values[0]
 
         return feature_class_name, shape_type, feature_type
+
+
+    def report_alias(self):
+        """Read the alias from the cell beside the Data Source Name, formatted as 'Alias: <alias>'."""
+
+        try:
+            value = self.df.iloc[0, 1]
+
+        except IndexError:
+            return None
+
+        if pd.isna(value) or not str(value).strip().upper().startswith("ALIAS"):
+            return None
+
+        alias = str(value).split(":", 1)[-1].strip()
+
+        return alias or None
 
 
 class SDSFMetaData:
@@ -169,10 +190,16 @@ class DomainsReport(Report):
     
     domains_section_header = "Fields with associated codes(values) and descriptions"
     
-    def __init__(self, excel_path, subtype_field=(), sheet_name="DATASET DETAILS"):
+    def __init__(self, excel_path, subtype_field=(), sheet_name="DATASET DETAILS", field_domains=None):
+        """
+        :param field_domains: optional list of domain names assigned to fields. When provided, only these
+                              domains are read from the domains section (ex. code lookups converted in an ETL
+                              and not assigned to a field are skipped).
+        """
         super().__init__(excel_path, sheet_name)
 
         self.subtype_field = subtype_field
+        self.field_domains = field_domains
 
         self.domain_df = pd.DataFrame()
 
@@ -188,95 +215,116 @@ class DomainsReport(Report):
         ``domain_names`` is a list of domain names found in the sheet and
         ``domain_data`` is a dictionary mapping those domain names to
         :class:`pandas.DataFrame` objects of coded values.
+
+        Each domain section is a field name / domain name row, a "Code" / "Description" header row, then
+        the coded values. A section ends at the first blank row or at the start of the next domain, so notes
+        below the domains (ex. queries, lookup tables) are not read as coded values.
         """
 
         domain_dataframes = dict()
 
-        # Get domain info from main spreadsheet - Starts at first row after "Common Attribute Values for Fields"
-        self.domain_df = self.df.loc[DomainsReport.domains_section_header:].iloc[1:]
+        # Keep blank rows so the end of each domain section can be found
+        raw_df = self.to_dataframe(self.sheet_name, drop_blank_rows=False)
 
-        # Check index for a mis-named SourceAccuracy field
-        df_index = self.domain_df.index.tolist()
-        for count, value in enumerate(df_index):
-            if isinstance(value, str) and "SourceAccuracy" in value:
-                df_index[count] = "SourceAccuracy"
+        index_labels = [str(x).strip() if pd.notnull(x) else None for x in raw_df.index]
 
-        self.domain_df.index = df_index
+        if DomainsReport.domains_section_header not in index_labels:
+            return [], domain_dataframes
 
-        # Create json structure for domains
-        index_data = dict()
+        # Get domain info from main spreadsheet - Starts at first row after the domains section header
+        section_start = index_labels.index(DomainsReport.domains_section_header) + 1
 
-        # Iterate through index to domains
-        for count, index_value in enumerate(self.domain_df.index):
+        self.domain_df = raw_df.iloc[section_start:]
+        labels = index_labels[section_start:]
 
-            if str(index_value).upper() == "CODE":
-                
-                prev_row = count - 1
-                domain_field_name = df_index[prev_row]  # TODO: This is not the field name.
+        # Find each domain section - the domain name row is the non-blank row above "Code"
+        domain_sections = list()
 
-                # domain_name = df_index[prev_row]  # The value above "Code"
-                domain_name = self.domain_df.iloc[prev_row, 0]
+        for count, label in enumerate(labels):
 
-                row_index_start = self.domain_df.index.tolist().index(domain_field_name)  # Domain name will precede row index with value of Code
+            if not label or label.upper() != "CODE":
+                continue
 
-                index_data[domain_name] = {"start_index": row_index_start, "domain_field_name": domain_field_name}
+            name_row = count - 1
 
-        domain_names = list(index_data.keys())
+            while name_row >= 0 and not labels[name_row]:
+                name_row -= 1
 
-        if domain_names:
-            last_domain = domain_names[-1]
-    
-            # Check that no spaces are in domain - make sure SDSF is filled out correctly
-            bad_domain_names = list()
-    
-            for domain_name in domain_names:
-                if domain_name.count(" ") > 0:
-                    bad_domain_names.append(domain_name)
-    
-            if bad_domain_names:
-                error_message = f"\n\tDomain filled out incorrectly. " \
-                                f"Double check domain names, '{', '.join(bad_domain_names)}' and " \
-                                f"ensure no spaces are present."
-                raise SpatialDataSubmissionFormError(error_message)
-    
-            for count, current_domain_name in enumerate(domain_names):
-                next_domain = None
-                
-                if current_domain_name != last_domain:
-                    next_domain = domain_names[count + 1]
-                
-                domain_field = index_data[current_domain_name]['domain_field_name']
-                
-                if next_domain:
-                    next_domain_field = index_data[next_domain]['domain_field_name']
+            if name_row < 0:
+                continue
 
-                    domain_df = self.domain_df.loc[domain_field: next_domain_field]
+            domain_name = self.domain_df.iloc[name_row, 0]
 
-                else:
-                    domain_df = self.domain_df.loc[domain_field:]
+            if pd.isna(domain_name):
+                continue
 
-                domain_df.reset_index(inplace=True)  # Adds current index as first column
-                domain_df.columns = domain_df.iloc[1]  # Set first column as df header
-    
-                domain_field = domain_df.iloc[0, 0]
-                domain_name = domain_df.iloc[0, 1]
-    
-                if next_domain:
-                    # domain name, domain field, subtype code
-                    domain_df = domain_df.iloc[2:-1, :2]  # Only select 2nd to 2nd last row and first two columns
-    
-                else:
-                    domain_df = domain_df.iloc[2:, :2]  # Only select 2nd to 2nd last row and first two columns
-    
-                domain_df.dropna(inplace=True)
-                
-                domain_df = domain_df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
+            domain_sections.append(
+                {
+                    "domain_name": str(domain_name).strip(),
+                    "domain_field_name": labels[name_row],
+                    "header_row": count,
+                }
+            )
 
-                # Clean
-                # Remove any domain dataframes with empty rows
-                num_df_rows = len(domain_df.index)
-                if not num_df_rows == 0:
-                    domain_dataframes[current_domain_name] = domain_df
+        # Coded values end at the first blank row or the row before the next domain's name row
+        for count, section in enumerate(domain_sections):
+            first_row = section["header_row"] + 1
+            last_row = first_row
 
+            next_header_row = domain_sections[count + 1]["header_row"] if count + 1 < len(domain_sections) else None
+
+            while last_row < len(labels) and labels[last_row]:
+
+                if next_header_row is not None and last_row + 1 >= next_header_row:
+                    break
+
+                last_row += 1
+
+            section["rows"] = (first_row, last_row)
+
+        # Only keep domains assigned to fields, if provided
+        if self.field_domains is not None:
+            field_domains = {str(x).strip().upper() for x in self.field_domains if x}
+
+            for section in domain_sections:
+
+                if section["domain_name"].upper() not in field_domains:
+                    print(f"\tSkipping '{section['domain_name']}' ({section['domain_field_name']}) - "
+                          f"not assigned to a field.")
+
+            domain_sections = [x for x in domain_sections if x["domain_name"].upper() in field_domains]
+
+        domain_names = [x["domain_name"] for x in domain_sections]
+
+        # Check that no spaces are in domain - make sure SDSF is filled out correctly
+        bad_domain_names = [x for x in domain_names if x.count(" ") > 0]
+
+        if bad_domain_names:
+            error_message = f"\n\tDomain filled out incorrectly. " \
+                            f"Double check domain names, '{', '.join(bad_domain_names)}' and " \
+                            f"ensure no spaces are present."
+            raise SpatialDataSubmissionFormError(error_message)
+
+        for section in domain_sections:
+            header_row = section["header_row"]
+            first_row, last_row = section["rows"]
+
+            # Header row is "Code" / "Description"
+            columns = [labels[header_row], str(self.domain_df.iloc[header_row, 0]).strip()]
+
+            domain_df = pd.DataFrame(
+                {
+                    columns[0]: list(self.domain_df.index[first_row:last_row]),
+                    columns[1]: list(self.domain_df.iloc[first_row:last_row, 0]),
+                }
+            )
+
+            domain_df.dropna(inplace=True)
+
+            domain_df = domain_df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
+
+            # Remove any domain dataframes with empty rows
+            if not domain_df.empty:
+                domain_dataframes[section["domain_name"]] = domain_df
 
         return domain_names, domain_dataframes
