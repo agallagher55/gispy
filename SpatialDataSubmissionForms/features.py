@@ -29,6 +29,10 @@ EDITOR_TRACKING_FIELD_INFO = {
 }
 
 
+# Boilerplate ArcGIS adds to every tool call's messages - not useful when printed per field/call
+NOISY_MESSAGE_PREFIXES = ("Start Time:", "Succeeded at", "Executing:")
+
+
 def arcpy_messages(func):
 
     @functools.wraps(func)
@@ -40,7 +44,7 @@ def arcpy_messages(func):
             message_lines = messages.split("\n")
 
             for message in message_lines:
-                if message:
+                if message and not message.startswith(NOISY_MESSAGE_PREFIXES):
                     print(f"\t{message}")
 
             return result
