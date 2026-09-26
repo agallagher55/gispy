@@ -44,15 +44,11 @@ config.read('config.ini')
 
 # VARIABLES
 update_feature_info = {
-    "SDEADM.TRN_traffic_calming_assessm": [
+    "SDEADM.LND_grass": [
         {
-            "field": "FILE_NAME",
-            # "new_name": "DESIG",
-            "new_alias": "Original Speed File",
-        },
-        {
-            "field": "UFILE_NAME",
-            "new_alias": "Updated Speed File",
+            "field": "SP_ID",
+            "new_type": "TEXT",
+            "new_length": 20,
         },
     ]
 }
@@ -92,9 +88,9 @@ if __name__ == "__main__":
 
         for dbs in [
             [
-            config.get(run_from, "dev_rw"),
-            # config.get(run_from, "dev_ro"),
-            # config.get(run_from, "dev_web_ro_gdb")
+                # config.get(run_from, "dev_rw"),
+                config.get(run_from, "dev_ro"),
+                config.get(run_from, "dev_web_ro_gdb"),
             ],
             # [
             #     config.get("SERVER", "qa_rw"),
