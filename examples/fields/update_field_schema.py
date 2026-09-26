@@ -12,8 +12,9 @@ import logging
 
 from configparser import ConfigParser
 
-import utils
-from editor_tracking import turn_off_editor_tracking, turn_on_editor_tracking
+from gispy import utils
+from gispy.editor_tracking import turn_off_editor_tracking, turn_on_editor_tracking
+
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -168,8 +169,8 @@ if __name__ == "__main__":
             # ],
             [
                 config.get(run_from, "qa_rw"),
-                config.get(run_from, "qa_ro"),
-                config.get(run_from, "qa_web_ro_gdb"),
+                # config.get(run_from, "qa_ro"),
+                # config.get(run_from, "qa_web_ro_gdb"),
             ],
             # [
             #     config.get("SERVER", "prod_rw"),
