@@ -12,6 +12,9 @@ import logging
 
 from configparser import ConfigParser
 
+import utils
+from editor_tracking import turn_off_editor_tracking, turn_on_editor_tracking
+
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
 
@@ -71,6 +74,94 @@ def update_field_config(feature, field=None, alias=None, name=None, field_type=N
     logger.info(arcpy.GetMessages())
 
 
+LOCAL_GDB = None
+
+
+def get_local_gdb():
+    global LOCAL_GDB
+
+    if LOCAL_GDB is None:
+        LOCAL_GDB = utils.create_fgdb()
+
+    return LOCAL_GDB
+
+
+def convert_populated_field_type(feature, field, name=None, alias=None, field_type=None, length=None, nullable=None):
+    """
+    AlterField_management raises ERROR 001658 ("Cannot alter field types on
+    populated tables") whenever field_type is passed on a table with rows,
+    even if the type isn't actually changing. Work around it by backing up
+    the rows, emptying the table, altering the field, then appending the
+    rows back in.
+    """
+    local_gdb = get_local_gdb()
+
+    is_versioned = arcpy.Describe(feature).isVersioned
+
+    if is_versioned:
+        logger.info(f"'{feature}' is versioned. Unregistering...")
+        arcpy.UnregisterAsVersioned_management(
+            in_dataset=feature, keep_edit="KEEP_EDIT", compress_default="COMPRESS_DEFAULT"
+        )
+        # Unregistering doesn't always fully take effect programmatically in this environment
+        input(f"Confirm '{feature}' is fully unregistered as versioned, then press Enter to continue...")
+
+    feature_name = os.path.basename(feature).replace("SDEADM.", "").replace("WEBGIS.", "")
+    logger.info(f"Backing up '{feature}' to '{local_gdb}'...")
+    backup = arcpy.FeatureClassToFeatureClass_conversion(
+        in_features=feature,
+        out_path=local_gdb,
+        out_name=feature_name,
+    )[0]
+
+    attribute_rules = arcpy.Describe(feature).attributeRules
+    rule_export = None
+
+    if attribute_rules:
+        rule_export = f"../attribute_rules/{os.path.basename(feature)}_attributeRules.csv"
+        logger.info(f"Exporting and deleting attribute rules for '{feature}'...")
+        arcpy.ExportAttributeRules_management(in_table=feature, out_csv_file=rule_export)
+        arcpy.DeleteAttributeRule_management(feature, [x.name for x in attribute_rules])
+
+    try:
+        turn_off_editor_tracking(feature)
+    except arcpy.ExecuteError:
+        logger.info(f"Editor tracking not enabled on '{feature}', skipping disable step...")
+
+    logger.info(f"Truncating '{feature}'...")
+    try:
+        arcpy.TruncateTable_management(feature)
+    except arcpy.ExecuteError:
+        logger.info(arcpy.GetMessages(2))
+        logger.info("Truncating with an update cursor instead...")
+
+        with arcpy.da.UpdateCursor(feature, "OID@") as cursor:
+            for row in cursor:
+                cursor.deleteRow()
+
+    update_field_config(
+        feature=feature, field=field, name=name, alias=alias,
+        field_type=field_type, length=length, nullable=nullable,
+    )
+
+    if rule_export:
+        logger.info(f"Re-importing attribute rules for '{feature}'...")
+        arcpy.ImportAttributeRules_management(target_table=feature, csv_file=rule_export)
+
+    try:
+        turn_on_editor_tracking(feature)
+    except arcpy.ExecuteError:
+        logger.info(f"Editor tracking not enabled on '{feature}', skipping re-enable step...")
+
+    logger.info(f"Appending backed-up rows back into '{feature}'...")
+    arcpy.Append_management(inputs=backup, target=feature, schema_type="NO_TEST")
+    logger.info(arcpy.GetMessages())
+
+    if is_versioned:
+        logger.info(f"Re-registering '{feature}' as versioned...")
+        arcpy.RegisterAsVersioned_management(in_dataset=feature)
+
+
 if __name__ == "__main__":
 
     separator = "-" * 70
@@ -87,16 +178,16 @@ if __name__ == "__main__":
     try:
 
         for dbs in [
-            [
-                # config.get(run_from, "dev_rw"),
-                config.get(run_from, "dev_ro"),
-                config.get(run_from, "dev_web_ro_gdb"),
-            ],
             # [
-            #     config.get("SERVER", "qa_rw"),
-            #     config.get("SERVER", "qa_ro"),
-            #     config.get("SERVER", "qa_web_ro_gdb"),
+            #     # config.get(run_from, "dev_rw"),
+            #     config.get(run_from, "dev_ro"),
+            #     config.get(run_from, "dev_web_ro_gdb"),
             # ],
+            [
+                config.get(run_from, "qa_rw"),
+                config.get(run_from, "qa_ro"),
+                config.get(run_from, "qa_web_ro_gdb"),
+            ],
             # [
             #     config.get("SERVER", "prod_rw"),
             #     config.get("SERVER", "prod_ro"),
@@ -130,15 +221,35 @@ if __name__ == "__main__":
                                 new_type = field_info.get('new_type')
                                 new_nullable = field_info.get('new_nullable', '#')
 
-                                update_field_config(
-                                    feature=update_feature,
-                                    field=field,
-                                    name=new_name,
-                                    alias=new_alias,
-                                    field_type=new_type,
-                                    length=new_length,
-                                    nullable=new_nullable,
-                                )
+                                try:
+                                    update_field_config(
+                                        feature=update_feature,
+                                        field=field,
+                                        name=new_name,
+                                        alias=new_alias,
+                                        field_type=new_type,
+                                        length=new_length,
+                                        nullable=new_nullable,
+                                    )
+                                except arcpy.ExecuteError:
+                                    err_msg = arcpy.GetMessages(2)
+
+                                    if "001658" in err_msg:
+                                        logger.warning(
+                                            f"{err_msg}\n'{update_feature}' is populated; falling back to "
+                                            "backup/truncate/alter/append..."
+                                        )
+                                        convert_populated_field_type(
+                                            feature=update_feature,
+                                            field=field,
+                                            name=new_name,
+                                            alias=new_alias,
+                                            field_type=new_type,
+                                            length=new_length,
+                                            nullable=new_nullable,
+                                        )
+                                    else:
+                                        raise
 
     except arcpy.ExecuteError:
         arcpy_msg = arcpy.GetMessages(2)
