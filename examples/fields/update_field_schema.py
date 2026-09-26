@@ -89,9 +89,11 @@ def get_local_gdb():
 
 def convert_populated_field_type(feature, field, name=None, alias=None, field_type=None, length=None, nullable=None):
     """
-    AlterField_management raises ERROR 001658 ("Cannot alter field types on
-    populated tables") whenever field_type is passed on a table with rows,
-    even if the type isn't actually changing. Work around it by backing up
+    AlterField_management refuses to change field_type on a table with rows,
+    even if the type isn't actually changing. Depending on ArcGIS Pro
+    version this comes back as ERROR 001658 ("Cannot alter field types on
+    populated tables") or as the pair ERROR 001623 / ERROR 001662 ("The
+    table or feature class is not empty"). Work around it by backing up
     the rows, emptying the table, altering the field, then appending the
     rows back in. DeleteRows (not TruncateTable) empties the table since it
     is version-aware and works without unregistering as versioned.
@@ -226,7 +228,11 @@ if __name__ == "__main__":
                                 except arcpy.ExecuteError:
                                     err_msg = arcpy.GetMessages(2)
 
-                                    if "001658" in err_msg:
+                                    # "not empty" wording varies by ArcGIS Pro version:
+                                    # older Pro raises 001658, newer Pro raises 001623/001662
+                                    populated_table_errors = ("001658", "001662")
+
+                                    if any(code in err_msg for code in populated_table_errors):
                                         logger.warning(
                                             f"{err_msg}\n'{update_feature}' is populated; falling back to "
                                             "backup/truncate/alter/append..."
