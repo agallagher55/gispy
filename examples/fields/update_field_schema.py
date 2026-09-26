@@ -127,6 +127,11 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
     arcpy.DeleteRows_management(feature)
     logger.info(arcpy.GetMessages())
 
+    # The workspace connection caches row counts; without clearing it,
+    # AlterField still sees the pre-delete state and rejects the type
+    # change with "the table or feature class is not empty"
+    arcpy.ClearWorkspaceCache_management()
+
     update_field_config(
         feature=feature, field=field, name=name, alias=alias,
         field_type=field_type, length=length, nullable=nullable,
