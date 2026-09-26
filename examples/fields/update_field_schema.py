@@ -135,9 +135,29 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
 
     if is_versioned:
         logger.info(f"Unregistering '{feature}' as versioned...")
-        arcpy.UnregisterAsVersioned_management(
-            in_dataset=feature, keep_edit="KEEP_EDIT", compress_default="COMPRESS_DEFAULT"
-        )
+
+        try:
+            arcpy.UnregisterAsVersioned_management(
+                in_dataset=feature, keep_edit="KEEP_EDIT", compress_default="COMPRESS_DEFAULT"
+            )
+        except arcpy.ExecuteError:
+            err_msg = arcpy.GetMessages(2)
+
+            if "000101" in err_msg:
+                # UnregisterAsVersioned refuses to run while any version other
+                # than DEFAULT still has edits against this feature class. This
+                # has to be resolved by a person (reconcile/post those versions
+                # to DEFAULT, or delete stale child versions in ArcGIS Pro) —
+                # never automatically, since that could alter or discard
+                # another editor's unreviewed work.
+                raise RuntimeError(
+                    f"Cannot unregister '{feature}' as versioned: {err_msg.strip()} "
+                    "Reconcile and post all versions with edits against this feature "
+                    "class to DEFAULT (or delete stale child versions) in ArcGIS Pro, "
+                    "then re-run this script."
+                )
+
+            raise
 
     logger.info(f"Deleting rows from '{feature}'...")
     arcpy.DeleteRows_management(feature)
