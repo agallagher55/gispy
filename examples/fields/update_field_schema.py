@@ -92,19 +92,10 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
     populated tables") whenever field_type is passed on a table with rows,
     even if the type isn't actually changing. Work around it by backing up
     the rows, emptying the table, altering the field, then appending the
-    rows back in.
+    rows back in. DeleteRows (not TruncateTable) empties the table since it
+    is version-aware and works without unregistering as versioned.
     """
     local_gdb = get_local_gdb()
-
-    is_versioned = arcpy.Describe(feature).isVersioned
-
-    if is_versioned:
-        logger.info(f"'{feature}' is versioned. Unregistering...")
-        arcpy.UnregisterAsVersioned_management(
-            in_dataset=feature, keep_edit="KEEP_EDIT", compress_default="COMPRESS_DEFAULT"
-        )
-        # Unregistering doesn't always fully take effect programmatically in this environment
-        input(f"Confirm '{feature}' is fully unregistered as versioned, then press Enter to continue...")
 
     feature_name = os.path.basename(feature).replace("SDEADM.", "").replace("WEBGIS.", "")
     logger.info(f"Backing up '{feature}' to '{local_gdb}'...")
@@ -128,16 +119,9 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
     except arcpy.ExecuteError:
         logger.info(f"Editor tracking not enabled on '{feature}', skipping disable step...")
 
-    logger.info(f"Truncating '{feature}'...")
-    try:
-        arcpy.TruncateTable_management(feature)
-    except arcpy.ExecuteError:
-        logger.info(arcpy.GetMessages(2))
-        logger.info("Truncating with an update cursor instead...")
-
-        with arcpy.da.UpdateCursor(feature, "OID@") as cursor:
-            for row in cursor:
-                cursor.deleteRow()
+    logger.info(f"Deleting rows from '{feature}'...")
+    arcpy.DeleteRows_management(feature)
+    logger.info(arcpy.GetMessages())
 
     update_field_config(
         feature=feature, field=field, name=name, alias=alias,
@@ -159,10 +143,6 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
         turn_on_editor_tracking(feature)
     except arcpy.ExecuteError:
         logger.info(f"Editor tracking not enabled on '{feature}', skipping re-enable step...")
-
-    if is_versioned:
-        logger.info(f"Re-registering '{feature}' as versioned...")
-        arcpy.RegisterAsVersioned_management(in_dataset=feature)
 
 
 if __name__ == "__main__":
