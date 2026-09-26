@@ -109,7 +109,10 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
     rule_export = None
 
     if attribute_rules:
-        rule_export = f"../attribute_rules/{os.path.basename(feature)}_attributeRules.csv"
+        attribute_rules_dir = os.path.join(os.path.dirname(local_gdb), "attribute_rules")
+        os.makedirs(attribute_rules_dir, exist_ok=True)
+
+        rule_export = os.path.join(attribute_rules_dir, f"{os.path.basename(feature)}_attributeRules.csv")
         logger.info(f"Exporting and deleting attribute rules for '{feature}'...")
         arcpy.ExportAttributeRules_management(in_table=feature, out_csv_file=rule_export)
         arcpy.DeleteAttributeRule_management(feature, [x.name for x in attribute_rules])
