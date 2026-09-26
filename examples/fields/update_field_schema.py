@@ -95,8 +95,14 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
     populated tables") or as the pair ERROR 001623 / ERROR 001662 ("The
     table or feature class is not empty"). Work around it by backing up
     the rows, emptying the table, altering the field, then appending the
-    rows back in. DeleteRows (not TruncateTable) empties the table since it
-    is version-aware and works without unregistering as versioned.
+    rows back in.
+
+    On a versioned feature class, DeleteRows only removes rows from the
+    current edit version's delta state; the base table AlterField checks
+    still shows the old rows until the feature is unregistered as
+    versioned, which folds all edit states into the base table. So
+    unregister as versioned before deleting rows and altering the field,
+    then re-register as versioned before appending the rows back.
     """
     local_gdb = get_local_gdb()
 
@@ -125,19 +131,26 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
     except arcpy.ExecuteError:
         logger.info(f"Editor tracking not enabled on '{feature}', skipping disable step...")
 
+    is_versioned = arcpy.Describe(feature).isVersioned
+
+    if is_versioned:
+        logger.info(f"Unregistering '{feature}' as versioned...")
+        arcpy.UnregisterAsVersioned_management(
+            in_dataset=feature, keep_edit="KEEP_EDIT", compress_default="COMPRESS_DEFAULT"
+        )
+
     logger.info(f"Deleting rows from '{feature}'...")
     arcpy.DeleteRows_management(feature)
     logger.info(arcpy.GetMessages())
-
-    # The workspace connection caches row counts; without clearing it,
-    # AlterField still sees the pre-delete state and rejects the type
-    # change with "the table or feature class is not empty"
-    arcpy.ClearWorkspaceCache_management()
 
     update_field_config(
         feature=feature, field=field, name=name, alias=alias,
         field_type=field_type, length=length, nullable=nullable,
     )
+
+    if is_versioned:
+        logger.info(f"Re-registering '{feature}' as versioned...")
+        arcpy.RegisterAsVersioned_management(in_dataset=feature)
 
     # Reload with editor tracking and attribute rules still off, so the
     # restored rows keep their original ADDBY/MODDATE stamps and don't
