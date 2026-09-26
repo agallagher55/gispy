@@ -144,6 +144,13 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
         field_type=field_type, length=length, nullable=nullable,
     )
 
+    # Reload with editor tracking and attribute rules still off, so the
+    # restored rows keep their original ADDBY/MODDATE stamps and don't
+    # trigger rule-driven recalculation (e.g. ID sequences) on append
+    logger.info(f"Appending backed-up rows back into '{feature}'...")
+    arcpy.Append_management(inputs=backup, target=feature, schema_type="NO_TEST")
+    logger.info(arcpy.GetMessages())
+
     if rule_export:
         logger.info(f"Re-importing attribute rules for '{feature}'...")
         arcpy.ImportAttributeRules_management(target_table=feature, csv_file=rule_export)
@@ -152,10 +159,6 @@ def convert_populated_field_type(feature, field, name=None, alias=None, field_ty
         turn_on_editor_tracking(feature)
     except arcpy.ExecuteError:
         logger.info(f"Editor tracking not enabled on '{feature}', skipping re-enable step...")
-
-    logger.info(f"Appending backed-up rows back into '{feature}'...")
-    arcpy.Append_management(inputs=backup, target=feature, schema_type="NO_TEST")
-    logger.info(arcpy.GetMessages())
 
     if is_versioned:
         logger.info(f"Re-registering '{feature}' as versioned...")
