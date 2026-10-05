@@ -11,7 +11,7 @@
 
 operation:      # update_field_schema | add_fields | delete_fields | set_field_defaults
                 # assign_domains | change_domain_values | new_domain
-                # new_feature | assign_editor_tracking | retire_feature
+                # new_feature | assign_editor_tracking | retire_feature | create_view
 
 feature:        # SDEADM.SCHEMA_tablename  (leave blank for domain-only ops)
 
@@ -72,6 +72,19 @@ notes:          # Jira ticket / brief reason for the change
 # feature_type: POINT                  # POINT | LINE | POLYGON
 # feature_dataset:                     # optional
 
+# ── create_view (RO SDE only, see examples/views/create_view.py) ─
+# view_name: BLD_building_civic_address_VW
+# has_geometry: true                   # true = pause for the manual Catalog steps
+# grant_to: public
+# unique_id_field: OBJECTID             # must be unique in the view
+# sources:
+#   - SDEADM.LND_CIVIC_ADDRESS
+#   - SDEADM.BLD_BUILDING_ASSETPOINT
+# sql: |                                # SELECT body only, no CREATE VIEW, no ORDER BY, no ";"
+#   SELECT ...
+# aliases:
+#   FIELD_NAME: Display Name
+
 # ─────────────────────────────────────────────────────────────────
 # EXAMPLES
 # ─────────────────────────────────────────────────────────────────
@@ -118,3 +131,19 @@ notes:          # Jira ticket / brief reason for the change
 #   LEG: Legislated Land
 #   TRT: Treaty/Settlement Land
 #   SGA: Self-Governed Land
+
+# Example 4: Create a view in RO
+# ───────────────────────────────
+# operation: create_view
+# databases: [dev_ro]
+# notes: "TASK0330377 - HRM buildings joined to civic address points. SHAPE and OBJECTID from LND_CIVIC_ADDRESS.
+#         Duplicate BL_ID values removed from the NOT IN list: BL938 and BL78631 were each listed twice.
+#         Open question for Lisa O'Toole: keep the inclusive BL_ID IN filter or the exclusive NOT IN filter, then drop the other."
+# view_name: BLD_building_civic_address_VW     # placeholder, confirm
+# has_geometry: true
+# grant_to: public
+# sources: [SDEADM.LND_CIVIC_ADDRESS, SDEADM.BLD_BUILDING_ASSETPOINT]
+# aliases:
+#   MAINTBY: Maintained By
+#   CONST_YEAR: Year of Construction
+#   TOTAL_SQFT: Total SqFt

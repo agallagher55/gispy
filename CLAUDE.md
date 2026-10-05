@@ -32,6 +32,7 @@ generate or modify the appropriate script.
 | GIS Retire Feature       | `retire_features.py`                            | feature list                             |
 | GIS Enable Editor Tracking | `editor_tracking.py`                          | feature list                             |
 | LRS - New Event Table    | `LRS/1_create_events.py`                        | event table config                       |
+| GIS Create View (RO)     | `examples/views/create_view.py`                 | `VIEW_DEFINITION_SQL`, `FIELD_ALIASES`   |
 
 ---
 
@@ -136,7 +137,7 @@ notes: "Jira GIS-XXXX — one-line summary of why"
 **Supported operation types:**
 `update_field_schema`, `add_fields`, `delete_fields`, `set_field_defaults`,
 `assign_domains`, `change_domain_values`, `new_domain`, `new_feature`,
-`assign_editor_tracking`, `retire_feature`
+`assign_editor_tracking`, `retire_feature`, `create_view`
 
 ---
 
