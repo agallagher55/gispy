@@ -70,7 +70,7 @@ config = ConfigParser()
 config.read('config.ini')
 
 # TODO: UPDATE ME
-# TASK0330377: HRM-owned/partnered buildings joined to civic address points.
+# TASK0330377: HRM-owned/partnered buildings (building points) with civic address attributes.
 # VIEW_NAME is a placeholder, confirm the name before running against QA or Prod.
 VIEW_NAME = "BLD_building_civic_address_VW"
 VIEW_OWNER = "SDEADM"
@@ -90,25 +90,26 @@ UNIQUE_ID_FIELD = "OBJECTID"
 # "CREATE VIEW ... AS", no trailing semicolon, and no ORDER BY (SQL Server
 # does not allow it in a view). Keep SQL comments out of the string.
 #
-# SHAPE and OBJECTID come from LND_CIVIC_ADDRESS (civic address points).
-# Display names from the original request are applied as field aliases
-# (FIELD_ALIASES below) instead of quoted column names with spaces.
+# SHAPE and OBJECTID come from BLD_BUILDING_ASSETPOINT (the building points),
+# per Lisa O'Toole. LND_CIVIC_ADDRESS only supplies the address attributes.
+# The join is one to one (CIV_ID is unique in LND_CIVIC_ADDRESS), so the
+# building OBJECTID stays unique. Display names from the original request are
+# applied as field aliases (FIELD_ALIASES below) instead of quoted column
+# names with spaces.
 #
-# BL_ID filters: the request had an inclusive filter (IN ('BL820', 'BL320'))
-# and an exclusive filter (NOT IN). Against the data the inclusive filter
-# returns 0 rows: BL820 is an ADM asset and BL320 is an HRSB-owned school,
-# so neither passes the ASSETCODE and OWNER/PARTNER filters. All 7 IDs in
-# the NOT IN list do match the other filters, so the exclusive filter is the
-# one doing real work. The inclusive filter is removed here. Still waiting on
-# Lisa O'Toole to confirm. To restore it, add:
-#     AND A.BL_ID IN ('BL820', 'BL320')
+# BL_ID filters (TASK0330377):
+#     - The standard selection is ASSETCODE, OWNER/PARTNER and ASSETSTAT.
+#     - BL820 and BL320 do not fit it but Recreation wants them, so they are
+#       a separate selection (OR) that skips the standard filters.
+#     - The NOT IN list is buildings the standard selection picks up that
+#       Recreation does not want, and applies to everything.
 #
 # Duplicate BL_ID values removed from the original NOT IN list:
 #     BL938 (listed twice), BL78631 (listed twice)
 VIEW_DEFINITION_SQL = """
 SELECT
-    C.OBJECTID,
-    C.SHAPE,
+    A.OBJECTID,
+    A.SHAPE,
     A.BL_ID,
     A.ASSETCODE,
     A.FAC_NAME,
@@ -130,12 +131,17 @@ SELECT
     C.GSA_NAME AS COMMUNITY,
     C.DISTRICT,
     A.COMMENTS
-FROM SDEADM.LND_CIVIC_ADDRESS C
-INNER JOIN SDEADM.BLD_BUILDING_ASSETPOINT A
+FROM SDEADM.BLD_BUILDING_ASSETPOINT A
+INNER JOIN SDEADM.LND_CIVIC_ADDRESS C
     ON A.CIV_ID = C.CIV_ID
-WHERE A.ASSETCODE IN ('COR', 'AAC')
-  AND (A.OWNER = 'HRM' OR A.PARTNER = 'HRM')
-  AND A.ASSETSTAT = 'INS'
+WHERE (
+        (
+            A.ASSETCODE IN ('COR', 'AAC')
+            AND (A.OWNER = 'HRM' OR A.PARTNER = 'HRM')
+            AND A.ASSETSTAT = 'INS'
+        )
+        OR A.BL_ID IN ('BL820', 'BL320')
+    )
   AND A.BL_ID NOT IN ('BL938', 'BL78631', 'BL772', 'BL601', 'BL849', 'BL108', 'BL939')
 """.strip()
 

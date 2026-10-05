@@ -136,9 +136,9 @@ notes:          # Jira ticket / brief reason for the change
 # ───────────────────────────────
 # operation: create_view
 # databases: [dev_ro]
-# notes: "TASK0330377 - HRM buildings joined to civic address points. SHAPE and OBJECTID from LND_CIVIC_ADDRESS.
-#         Duplicate BL_ID values removed from the NOT IN list: BL938 and BL78631 were each listed twice.
-#         Open question for Lisa O'Toole: keep the inclusive BL_ID IN filter or the exclusive NOT IN filter, then drop the other."
+# notes: "TASK0330377 - HRM buildings with civic address attributes. SHAPE and OBJECTID from BLD_BUILDING_ASSETPOINT.
+#         BL820 and BL320 are added on top of the standard selection (OR). The NOT IN list is applied to everything.
+#         Duplicate BL_ID values removed from the NOT IN list: BL938 and BL78631 were each listed twice."
 # view_name: BLD_building_civic_address_VW     # placeholder, confirm
 # has_geometry: true
 # grant_to: public
