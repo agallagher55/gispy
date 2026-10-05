@@ -94,10 +94,14 @@ UNIQUE_ID_FIELD = "OBJECTID"
 # Display names from the original request are applied as field aliases
 # (FIELD_ALIASES below) instead of quoted column names with spaces.
 #
-# BL_ID filters: the request has an inclusive filter (IN) and an exclusive
-# filter (NOT IN). The NOT IN list does not contain BL820 or BL320, so with
-# both in place it changes nothing. Waiting on Lisa O'Toole to confirm which
-# one to keep, then delete the other.
+# BL_ID filters: the request had an inclusive filter (IN ('BL820', 'BL320'))
+# and an exclusive filter (NOT IN). Against the data the inclusive filter
+# returns 0 rows: BL820 is an ADM asset and BL320 is an HRSB-owned school,
+# so neither passes the ASSETCODE and OWNER/PARTNER filters. All 7 IDs in
+# the NOT IN list do match the other filters, so the exclusive filter is the
+# one doing real work. The inclusive filter is removed here. Still waiting on
+# Lisa O'Toole to confirm. To restore it, add:
+#     AND A.BL_ID IN ('BL820', 'BL320')
 #
 # Duplicate BL_ID values removed from the original NOT IN list:
 #     BL938 (listed twice), BL78631 (listed twice)
@@ -132,7 +136,6 @@ INNER JOIN SDEADM.BLD_BUILDING_ASSETPOINT A
 WHERE A.ASSETCODE IN ('COR', 'AAC')
   AND (A.OWNER = 'HRM' OR A.PARTNER = 'HRM')
   AND A.ASSETSTAT = 'INS'
-  AND A.BL_ID IN ('BL820', 'BL320')
   AND A.BL_ID NOT IN ('BL938', 'BL78631', 'BL772', 'BL601', 'BL849', 'BL108', 'BL939')
 """.strip()
 
