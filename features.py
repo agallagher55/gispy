@@ -162,6 +162,7 @@ class Feature:
 
         if not holders:
             print("\t    No specific session could be matched to the lock.")
+            self._print_sessions(sde_admin, "Connected sessions")
 
         if not unlock:
             print("\tTip: pass unlock=True to disconnect the sessions holding the lock.")
@@ -185,7 +186,32 @@ class Feature:
             time.sleep(wait_seconds)
 
         print("\tERROR: schema lock could not be cleared.")
+        self._print_sessions(sde_admin, "Sessions still connected after disconnect")
+        print(
+            "\tIf sessions keep coming back, a published service is likely reconnecting. "
+            "Stop the service that uses this feature, then re-run."
+        )
         return False
+
+    @staticmethod
+    def _print_sessions(sde_workspace: str, label: str):
+        """Print every session connected to an SDE workspace (needs an admin connection)."""
+
+        try:
+            sessions = arcpy.ListUsers(sde_workspace)
+
+        except Exception as e:
+            print(f"\t    Could not list sessions: {e}")
+            return
+
+        print(f"\t    {label} ({len(sessions)}):")
+
+        for user in sessions:
+            print(
+                f"\t      sde_id={user.ID}  user={user.Name}  machine={user.ClientName}  "
+                f"type={getattr(user, 'ClientType', None)}  minutes={user.MinutesConnected}  "
+                f"transactions={user.TransactionCount}"
+            )
 
     @arcpy_messages
     def add_field(

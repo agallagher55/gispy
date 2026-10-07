@@ -8,6 +8,7 @@ from os import (
 import arcpy
 import logging
 
+from gispy import locks
 from gispy.features import Feature
 
 arcpy.env.overwriteOutput = True
@@ -37,6 +38,9 @@ console_handler.setFormatter(log_formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+# Route lock management messages through this script's logger
+locks.logger = logger
+
 config = ConfigParser()
 config.read('config.ini')
 
@@ -57,91 +61,89 @@ new_field_info = {
     },
 }
 
+# Environments to process, mapped to the config keys of the dbs to edit in each.
+# The db admin (sde user) connection is derived from the environment name as "<env>_rw_sde".
+# WEBGIS features can use domains from SDEADM owner - don't need to create a domain for both SDEADM and WEBGIS
+ENVIRONMENTS = {
+    "dev": [
+        "dev_rw",
+        # "dev_ro",
+        # "dev_web_ro_gdb",
+    ],
+    # "qa": [
+    #     "qa_rw",
+    #     "qa_ro",
+    #     "qa_web_ro_gdb",
+    # ],
+    # "prod": [
+    #     "prod_rw",
+    #     "prod_ro",
+    #     "prod_web_ro_gdb",
+    # ],
+}
+
+# Disconnect SDE sessions (e.g. map services) holding a schema lock on the feature before adding fields
+UNLOCK = True
+
 if __name__ == "__main__":
 
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    # Each environment is (dbs to process, db admin connection for that environment).
-    # The db admin (sde user) is only used to list and disconnect sessions holding schema locks.
-    for dbs, admin_db in [
+    for env, db_keys in ENVIRONMENTS.items():
 
-        (
-            [
-                config.get(run_from, "dev_rw"),
-                # config.get(run_from, "dev_ro"),
-                # config.get(run_from, "dev_web_ro_gdb")
-            ],
-            config.get(run_from, "dev_rw_sde"),
-        ),
+        dbs = [config.get(run_from, key) for key in db_keys]
 
-        # (
-        #     [
-        #         config.get(run_from, "qa_rw"),
-        #         config.get(run_from, "qa_ro"),
-        #         config.get(run_from, "qa_web_ro_gdb")
-        #     ],
-        #     config.get(run_from, "qa_rw_sde"),
-        # ),
-        # (
-        #     [
-        #         config.get(run_from, "prod_rw"),
-        #         config.get(run_from, "prod_ro"),
-        #         config.get(run_from, "prod_web_ro_gdb")
-        #     ],
-        #     config.get(run_from, "prod_rw_sde"),
-        # ),
-    ]:
+        # The db admin (sde user) is only used to list and disconnect sessions holding schema locks
+        admin_db = config.get(run_from, f"{env}_rw_sde")
 
-        if dbs:
-            logger.info(f"Processing dbs: {', '.join(dbs)}...")
+        logger.info(f"ENVIRONMENT: {env} | Processing dbs: {', '.join(dbs)} | Admin: {admin_db}")
 
-            for db in dbs:
-                logger.info(f"DATABASE: {db}")
+        for db in dbs:
+            logger.info(f"DATABASE: {db}")
 
-                for feature_key in new_field_info:
+            for feature_key in new_field_info:
 
-                    update_feature = feature_key.replace("SDEADM.", "") if db.endswith(".gdb") else feature_key
+                update_feature = feature_key.replace("SDEADM.", "") if db.endswith(".gdb") else feature_key
 
-                    logger.info(f"Feature: {update_feature}")
+                logger.info(f"Feature: {update_feature}")
 
-                    with arcpy.EnvManager(workspace=db):
+                with arcpy.EnvManager(workspace=db):
 
-                        # Check if feature exists
-                        if not arcpy.Exists(update_feature):
-                            if db.endswith(".gdb"):
-                                logger.warning(f"\tFeature, '{update_feature}', does not exist in {db}. Skipping...")
-                                continue
-                            raise ValueError(f"\tFeature, '{update_feature}', does not exist.")
+                    # Check if feature exists
+                    if not arcpy.Exists(update_feature):
+                        if db.endswith(".gdb"):
+                            logger.warning(f"\tFeature, '{update_feature}', does not exist in {db}. Skipping...")
+                            continue
 
-                        desc = arcpy.Describe(update_feature)
+                        raise ValueError(f"\tFeature, '{update_feature}', does not exist.")
 
-                        my_feature = Feature(db, desc.baseName, "POINT")
-                        current_fields = [x.name for x in arcpy.ListFields(update_feature)]
+                    desc = arcpy.Describe(update_feature)
 
-                        # TODO: Stop services
+                    my_feature = Feature(db, desc.baseName, "POINT")
+                    current_fields = [x.name for x in arcpy.ListFields(update_feature)]
 
-                        update_feature_new_field_info = new_field_info[feature_key]
+                    # TODO: Stop services
 
-                        for field in update_feature_new_field_info:
-                            logger.info(f"Field to add: '{field}'")
+                    update_feature_new_field_info = new_field_info[feature_key]
 
-                            # Check that field doesn't already exist
+                    for field in update_feature_new_field_info:
+                        logger.info(f"Field to add: '{field}'")
 
-                            if field in current_fields:
-                                logger.info(f"Field, {field} already exists in {update_feature}..!")
-                                continue
+                        # Check that field doesn't already exist
+                        if field in current_fields:
+                            logger.info(f"Field, {field} already exists in {update_feature}..!")
+                            continue
 
-                            logger.info(f"Adding {field} to {update_feature}...")
-                            my_feature.add_field(
-                                field_name=field,
-                                field_type=update_feature_new_field_info[field]["field_type"],
-                                length=update_feature_new_field_info[field].get("field_length", "#"),
-                                alias=update_feature_new_field_info[field]["alias"],
-                                domain_name=update_feature_new_field_info[field]["domain"],
-                                unlock=UNLOCK,
-                                admin_workspace=admin_db
-                            )
+                        logger.info(f"Adding {field} to {update_feature}...")
+                        my_feature.add_field(
+                            field_name=field,
+                            field_type=update_feature_new_field_info[field]["field_type"],
+                            length=update_feature_new_field_info[field].get("field_length", "#"),
+                            alias=update_feature_new_field_info[field]["alias"],
+                            domain_name=update_feature_new_field_info[field]["domain"],
+                            unlock=UNLOCK,
+                            admin_workspace=admin_db
+                        )
 
-                        # TODO: Start services
-                        # * Had to manually unlock with SDE connection
+                    # TODO: Start services
