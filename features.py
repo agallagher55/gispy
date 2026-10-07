@@ -1,5 +1,6 @@
 import functools
 import os
+import traceback
 
 import arcpy
 
@@ -46,7 +47,21 @@ def arcpy_messages(func):
             return result
 
         except arcpy.ExecuteError as e:
-            print(f"ARCPY ERROR: {e}")
+            print(f"\nARCPY ERROR in {func.__name__}: {e}")
+
+            # Arguments the failing call was made with (skip 'self')
+            call_args = [repr(a) for a in args[1:]] + [f"{k}={v!r}" for k, v in kwargs.items()]
+            print(f"\tCALL: {func.__name__}({', '.join(call_args)})")
+
+            # Errors only (severity 2), then every message from the tool run (info + warnings + errors)
+            print(f"\tGP ERRORS:\n{arcpy.GetMessages(2)}")
+            print(f"\tALL GP MESSAGES:\n{arcpy.GetMessages()}")
+
+            # The underlying DBMS error, when ArcGIS provides one, is only in the exception args
+            if e.args:
+                print(f"\tEXCEPTION ARGS: {e.args}")
+
+            print(f"\tTRACEBACK:\n{traceback.format_exc()}")
 
     return wrapper
     
@@ -140,6 +155,28 @@ class Feature:
         #
         # else:
         #     field_precision = "#"  # int
+
+        # Pre-checks so the most common causes of ERROR 000852 are reported clearly
+        domain_name = (domain_name or "").strip()
+
+        if domain_name:
+            domains = {d.name: d for d in arcpy.da.ListDomains(self.workspace)}
+
+            if domain_name not in domains:
+                raise ValueError(f"Domain '{domain_name}' does not exist in workspace '{self.workspace}'.")
+
+            domain_field_type = domains[domain_name].type
+            print(f"\tDomain '{domain_name}' found (field type: {domain_field_type}).")
+
+        # Schema locks are another common cause on SDE; list other connections if possible
+        if not arcpy.TestSchemaLock(self.feature):
+            print(f"\tWARNING: cannot get a schema lock on '{self.feature}'. "
+                  f"Another connection or service may be holding it.")
+
+        print(
+            f"\tAdding field: name='{field_name}', type={field_type}, length={length}, "
+            f"alias='{alias}', domain='{domain_name}'"
+        )
 
         arcpy.AddField_management(
             in_table=self.feature,
