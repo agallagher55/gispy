@@ -62,28 +62,35 @@ if __name__ == "__main__":
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
-    # Disconnect SDE sessions (e.g. map services) holding a schema lock on the feature before adding fields
-    UNLOCK = True
+    # Each environment is (dbs to process, db admin connection for that environment).
+    # The db admin (sde user) is only used to list and disconnect sessions holding schema locks.
+    for dbs, admin_db in [
 
-    for dbs in [
-        # WEBGIS features can use domains from SDEADM owner - don't need to create a domain for both SDEADM and WEBGIS
+        (
+            [
+                config.get(run_from, "dev_rw"),
+                # config.get(run_from, "dev_ro"),
+                # config.get(run_from, "dev_web_ro_gdb")
+            ],
+            config.get(run_from, "dev_rw_sde"),
+        ),
 
-        [
-            config.get(run_from, "dev_rw"),
-            # config.get(run_from, "dev_ro"),
-            # config.get(run_from, "dev_web_ro_gdb")
-        ],
-
-        # [
-        # config.get(run_from, "qa_rw"),
-        # config.get(run_from, "qa_ro"),
-        # config.get(run_from, "qa_web_ro_gdb")
-        # ],
-        # [
-        #     config.get(run_from, "prod_rw"),
-        #     config.get(run_from, "prod_ro"),
-        #     config.get(run_from, "prod_web_ro_gdb")
-        # ],
+        # (
+        #     [
+        #         config.get(run_from, "qa_rw"),
+        #         config.get(run_from, "qa_ro"),
+        #         config.get(run_from, "qa_web_ro_gdb")
+        #     ],
+        #     config.get(run_from, "qa_rw_sde"),
+        # ),
+        # (
+        #     [
+        #         config.get(run_from, "prod_rw"),
+        #         config.get(run_from, "prod_ro"),
+        #         config.get(run_from, "prod_web_ro_gdb")
+        #     ],
+        #     config.get(run_from, "prod_rw_sde"),
+        # ),
     ]:
 
         if dbs:
@@ -133,10 +140,7 @@ if __name__ == "__main__":
                                 alias=update_feature_new_field_info[field]["alias"],
                                 domain_name=update_feature_new_field_info[field]["domain"],
                                 unlock=UNLOCK,
-                                # sde user connection, needed to list and disconnect sessions
-                                admin_workspace=config.get(
-                                    run_from, "dev_admin", fallback=config.get(run_from, "dev_rw_sde", fallback=None)
-                                )
+                                admin_workspace=admin_db
                             )
 
                         # TODO: Start services
