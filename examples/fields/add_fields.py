@@ -157,7 +157,7 @@ if __name__ == "__main__":
                                 unlock=UNLOCK,
                                 # sde user connection, needed to list and disconnect sessions
                                 admin_workspace=config.get(
-                                    run_from, "dev_admin", fallback=config.get(run_from, "dev_ro_sde", fallback=None)
+                                    run_from, "dev_admin", fallback=config.get(run_from, "dev_rw_sde", fallback=None)
                                 )
                             )
 
