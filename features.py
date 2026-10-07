@@ -1,7 +1,13 @@
 import functools
 import os
+import time
 
 import arcpy
+
+try:
+    from gispy import locks
+except ImportError:
+    import locks
 
 arcpy.env.overwriteOutput = True
 
@@ -112,8 +118,64 @@ class Feature:
 
         return self.feature
 
+    def ensure_schema_lock(self, unlock: bool = False, retries: int = 5, wait_seconds: int = 2) -> bool:
+        """
+        Check that a schema lock can be acquired on this feature, optionally clearing the locks that block it.
+
+        Sessions holding the lock are reported using locks.get_feature_locks(). When unlock is True and the workspace
+        is an SDE connection, those sessions are disconnected using locks.remove_locks(). If no session can be matched
+        to the lock (e.g. missing VIEW SERVER STATE permission), remove_locks() falls back to disconnecting all
+        sessions on the connection, so only use unlock=True against a database where that is acceptable.
+
+           :param unlock: Disconnect the sessions holding the lock
+           :param retries: Number of times to re-test the lock after disconnecting sessions
+           :param wait_seconds: Seconds to wait between re-tests
+           :return: True if a schema lock is available
+           """
+
+        if arcpy.TestSchemaLock(self.feature):
+            return True
+
+        print(f"\tWARNING: cannot get a schema lock on '{self.feature_name}'.")
+
+        if self.workspace.lower().endswith(".gdb"):
+            print("\tFile geodatabase: close any other app (ArcGIS Pro, ArcMap, ArcCatalog) using this data.")
+            return False
+
+        holders = locks.get_feature_locks(self.workspace, self.feature_name)
+
+        for row in holders:
+            print(
+                f"\t    sde_id={row['sde_id']}  user={row['username']}  machine={row['client_name']}  "
+                f"type={row['client_type']}  lock={row['lock_type']}"
+            )
+
+        if not holders:
+            print("\t    No specific session could be matched to the lock.")
+
+        if not unlock:
+            print("\tTip: pass unlock=True to disconnect the sessions holding the lock.")
+            return False
+
+        print("\tAttempting to remove locks...")
+        locks.remove_locks(self.workspace, feature=self.feature_name, dry_run=False)
+
+        for attempt in range(1, retries + 1):
+            if arcpy.TestSchemaLock(self.feature):
+                print("\tSchema lock is now available.")
+                return True
+
+            print(f"\tStill locked, re-testing ({attempt}/{retries})...")
+            time.sleep(wait_seconds)
+
+        print("\tERROR: schema lock could not be cleared.")
+        return False
+
     @arcpy_messages
-    def add_field(self, field_name: str, field_type: str, length: int, alias: str, domain_name: str, precision="#"):
+    def add_field(
+            self, field_name: str, field_type: str, length: int, alias: str, domain_name: str, precision="#",
+            unlock: bool = False
+    ):
         """
         Although the Field object's type property values are not an exact match for the keywords used by the Add Field
         tool's field_type parameter, all of the Field object's type values can be used as input to this parameter.
@@ -125,6 +187,7 @@ class Feature:
            :param alias:
            :param nullable:
            :param domain_name:
+           :param unlock: If a schema lock blocks the edit, disconnect the SDE sessions holding it
            :return:
            """
 
@@ -164,10 +227,8 @@ class Feature:
             domain_field_type = domains[domain_name].type
             print(f"\tDomain '{domain_name}' found (field type: {domain_field_type}).")
 
-        # Schema locks are another common cause on SDE; list other connections if possible
-        if not arcpy.TestSchemaLock(self.feature):
-            print(f"\tWARNING: cannot get a schema lock on '{self.feature}'. "
-                  f"Another connection or service may be holding it.")
+        # Schema locks are another common cause of ERROR 000852 on SDE
+        self.ensure_schema_lock(unlock=unlock)
 
         print(
             f"\tAdding field: name='{field_name}', type={field_type}, length={length}, "

@@ -8,6 +8,7 @@ from os import (
 import arcpy
 import logging
 
+import locks
 from features import Feature
 
 arcpy.env.overwriteOutput = True
@@ -37,10 +38,16 @@ console_handler.setFormatter(log_formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+# Route lock management messages through this script's logger
+locks.logger = logger
+
 config = ConfigParser()
 config.read('config.ini')
 
 CURRENT_DIR = getcwd()
+
+# Disconnect SDE sessions (e.g. map services) holding a schema lock on the feature before adding fields
+UNLOCK = True
 
 # TODO: UPDATE ME
 new_field_info = {
@@ -146,7 +153,8 @@ if __name__ == "__main__":
                                 field_type=update_feature_new_field_info[field]["field_type"],
                                 length=update_feature_new_field_info[field].get("field_length", "#"),
                                 alias=update_feature_new_field_info[field]["alias"],
-                                domain_name=update_feature_new_field_info[field]["domain"]
+                                domain_name=update_feature_new_field_info[field]["domain"],
+                                unlock=UNLOCK
                             )
 
                         # TODO: Start services
