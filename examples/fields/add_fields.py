@@ -155,7 +155,10 @@ if __name__ == "__main__":
                                 alias=update_feature_new_field_info[field]["alias"],
                                 domain_name=update_feature_new_field_info[field]["domain"],
                                 unlock=UNLOCK,
-                                admin_workspace=config.get(run_from, "dev_admin", fallback=None)
+                                # sde user connection, needed to list and disconnect sessions
+                                admin_workspace=config.get(
+                                    run_from, "dev_admin", fallback=config.get(run_from, "dev_ro_sde", fallback=None)
+                                )
                             )
 
                         # TODO: Start services
