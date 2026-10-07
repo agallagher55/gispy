@@ -118,7 +118,9 @@ class Feature:
 
         return self.feature
 
-    def ensure_schema_lock(self, unlock: bool = False, retries: int = 5, wait_seconds: int = 2) -> bool:
+    def ensure_schema_lock(
+            self, unlock: bool = False, admin_workspace: str = None, retries: int = 5, wait_seconds: int = 2
+    ) -> bool:
         """
         Check that a schema lock can be acquired on this feature, optionally clearing the locks that block it.
 
@@ -128,6 +130,9 @@ class Feature:
         sessions on the connection, so only use unlock=True against a database where that is acceptable.
 
            :param unlock: Disconnect the sessions holding the lock
+           :param admin_workspace: SDE connection file for the geodatabase administrator (sde user). Listing and
+                                   disconnecting sessions requires admin rights, which a data owner connection
+                                   such as SDEADM does not have. Defaults to the feature's own workspace.
            :param retries: Number of times to re-test the lock after disconnecting sessions
            :param wait_seconds: Seconds to wait between re-tests
            :return: True if a schema lock is available
@@ -142,7 +147,12 @@ class Feature:
             print("\tFile geodatabase: close any other app (ArcGIS Pro, ArcMap, ArcCatalog) using this data.")
             return False
 
-        holders = locks.get_feature_locks(self.workspace, self.feature_name)
+        sde_admin = admin_workspace or self.workspace
+
+        if not admin_workspace and unlock:
+            print("\tNo admin connection provided, using the feature's connection (may not have admin rights).")
+
+        holders = locks.get_feature_locks(sde_admin, self.feature_name)
 
         for row in holders:
             print(
@@ -158,7 +168,13 @@ class Feature:
             return False
 
         print("\tAttempting to remove locks...")
-        locks.remove_locks(self.workspace, feature=self.feature_name, dry_run=False)
+        try:
+            locks.remove_locks(sde_admin, feature=self.feature_name, dry_run=False)
+
+        except (arcpy.ExecuteError, RuntimeError) as e:
+            print(f"\tERROR: could not remove locks: {e}")
+            print("\tProvide an admin (sde user) connection file via admin_workspace, or stop the service manually.")
+            return False
 
         for attempt in range(1, retries + 1):
             if arcpy.TestSchemaLock(self.feature):
@@ -174,7 +190,7 @@ class Feature:
     @arcpy_messages
     def add_field(
             self, field_name: str, field_type: str, length: int, alias: str, domain_name: str, precision="#",
-            unlock: bool = False
+            unlock: bool = False, admin_workspace: str = None
     ):
         """
         Although the Field object's type property values are not an exact match for the keywords used by the Add Field
@@ -188,6 +204,7 @@ class Feature:
            :param nullable:
            :param domain_name:
            :param unlock: If a schema lock blocks the edit, disconnect the SDE sessions holding it
+           :param admin_workspace: SDE admin (sde user) connection file used to list and disconnect sessions
            :return:
            """
 
@@ -228,7 +245,7 @@ class Feature:
             print(f"\tDomain '{domain_name}' found (field type: {domain_field_type}).")
 
         # Schema locks are another common cause of ERROR 000852 on SDE
-        self.ensure_schema_lock(unlock=unlock)
+        self.ensure_schema_lock(unlock=unlock, admin_workspace=admin_workspace)
 
         print(
             f"\tAdding field: name='{field_name}', type={field_type}, length={length}, "
