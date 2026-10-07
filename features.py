@@ -1,6 +1,5 @@
 import functools
 import os
-import traceback
 
 import arcpy
 
@@ -47,21 +46,18 @@ def arcpy_messages(func):
             return result
 
         except arcpy.ExecuteError as e:
-            print(f"\nARCPY ERROR in {func.__name__}: {e}")
-
             # Arguments the failing call was made with (skip 'self')
-            call_args = [repr(a) for a in args[1:]] + [f"{k}={v!r}" for k, v in kwargs.items()]
-            print(f"\tCALL: {func.__name__}({', '.join(call_args)})")
+            call_args = [f"{a!r}" for a in args[1:]] + [f"{k}={v!r}" for k, v in kwargs.items()]
 
-            # Errors only (severity 2), then every message from the tool run (info + warnings + errors)
-            print(f"\tGP ERRORS:\n{arcpy.GetMessages(2)}")
-            print(f"\tALL GP MESSAGES:\n{arcpy.GetMessages()}")
+            # Error messages only, each once (the exception text repeats them)
+            error_lines = [x.strip() for x in arcpy.GetMessages(2).splitlines() if x.strip()]
 
-            # The underlying DBMS error, when ArcGIS provides one, is only in the exception args
-            if e.args:
-                print(f"\tEXCEPTION ARGS: {e.args}")
+            print(f"\n\tARCPY ERROR in {func.__name__}({', '.join(call_args)})")
 
-            print(f"\tTRACEBACK:\n{traceback.format_exc()}")
+            for line in error_lines:
+                print(f"\t    {line}")
+
+            print()
 
     return wrapper
     
