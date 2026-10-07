@@ -8,8 +8,7 @@ from os import (
 import arcpy
 import logging
 
-import locks
-from features import Feature
+from gispy.features import Feature
 
 arcpy.env.overwriteOutput = True
 arcpy.SetLogHistory(False)
@@ -38,49 +37,24 @@ console_handler.setFormatter(log_formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-# Route lock management messages through this script's logger
-locks.logger = logger
-
 config = ConfigParser()
 config.read('config.ini')
 
 CURRENT_DIR = getcwd()
 
-# Disconnect SDE sessions (e.g. map services) holding a schema lock on the feature before adding fields
-UNLOCK = True
-
 # TODO: UPDATE ME
 new_field_info = {
-
-    "SDEADM.ADM_polling_district_2016": {
-
-        "DISTPOP": {
-            "alias": "2016 Census Population",
-            "field_type": "Long",
-            "field_length": "",
+    "SDEADM.SER_DRY_HYDRANT": {
+        "ASSETSTAT": {
+            "alias": "Asset Status",
+            "field_type": "TEXT",
+            "field_length": "5",
             "nullable": "NULLABLE",
             "default": "",
-            "domain": ""
-        },
-        "DISTDWEL": {
-            "alias": "2016 Total Dwellings",
-            "field_type": "Long",
-            "field_length": "",
-            "nullable": "NULLABLE",
-            "default": "",
-            "domain": ""
-        },
-        "POPSOURCE": {
-            "alias": "Population Source",
-            "field_type": "Text",
-            "field_length": "50",
-            "nullable": "NULLABLE",
-            "default": "98-316-X2016001",
-            "domain": ""
+            "domain": "AAA_asset_stat"
         },
 
     },
-
 }
 
 if __name__ == "__main__":
@@ -88,7 +62,11 @@ if __name__ == "__main__":
     PC_NAME = environ['COMPUTERNAME']
     run_from = "SERVER" if "APP" in PC_NAME else "LOCAL"
 
+    # Disconnect SDE sessions (e.g. map services) holding a schema lock on the feature before adding fields
+    UNLOCK = True
+
     for dbs in [
+        # WEBGIS features can use domains from SDEADM owner - don't need to create a domain for both SDEADM and WEBGIS
 
         [
             config.get(run_from, "dev_rw"),
