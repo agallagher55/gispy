@@ -471,10 +471,12 @@ def _disconnect_all(sde_workspace, dry_run):
         logger.info(f"Disconnected all users on {sde_workspace}")
         return True
 
-    except arcpy.ExecuteError:
+    except (arcpy.ExecuteError, RuntimeError) as e:
+        # A non-administrative connection (e.g. the data owner) raises RuntimeError
         logger.error(
-            f"Failed to disconnect users on {sde_workspace}: "
-            f"{arcpy.GetMessages(2)}"
+            f"Failed to disconnect users on {sde_workspace}: {e} "
+            f"{arcpy.GetMessages(2)}\n"
+            f"  DisconnectUser needs a connection file for the geodatabase administrator (sde user)."
         )
         return False
 
