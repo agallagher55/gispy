@@ -178,6 +178,9 @@ class Feature:
             return False
 
         for attempt in range(1, retries + 1):
+            # Disconnecting "ALL" also kills this script's own cached connection, so drop it and reconnect
+            arcpy.ClearWorkspaceCache_management()
+
             if arcpy.TestSchemaLock(self.feature):
                 print("\tSchema lock is now available.")
                 return True
